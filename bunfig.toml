@@ -1,0 +1,10 @@
+[install]
+linker = "isolated"
+saveTextLockfile = true
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = [
+  "@types/node",
+  "@types/react",
+  "@types/react-dom",
+  "@typescript/native-preview",
+]

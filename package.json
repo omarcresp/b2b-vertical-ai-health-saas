@@ -1,0 +1,59 @@
+{
+  "name": "b2b-vertical-saas",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/workos/template-convex-react-vite-authkit/#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/workos/template-convex-react-vite-authkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/workos/template-convex-react-vite-authkit/issues"
+  },
+  "scripts": {
+    "ci:install": "bun ci",
+    "dev": "concurrently --kill-others --names frontend,backend \"bun run dev:frontend\" \"bun run dev:backend\"",
+    "dev:frontend": "vite --open",
+    "dev:backend": "convex dev",
+    "predev": "convex dev --until-success && convex dashboard",
+    "build": "vite build",
+    "typecheck": "tsgo --noEmit -p tsconfig.app.json && tsgo --noEmit -p tsconfig.node.json && tsgo --noEmit -p convex/tsconfig.json",
+    "typecheck:compat": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p convex/tsconfig.json",
+    "lint": "biome check .",
+    "lint:changed": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && biome check --changed || biome check .",
+    "lint:fix": "biome check . --write",
+    "preview": "vite preview",
+    "format": "biome format . --write",
+    "format:changed": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && biome format --changed --write || biome format . --write",
+    "format:check": "biome format ."
+  },
+  "dependencies": {
+    "@convex-dev/rate-limiter": "^0.3.2",
+    "@workos-inc/authkit-react": "^0.16.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "convex": "^1.31.7",
+    "lucide-react": "^0.575.0",
+    "radix-ui": "^1.4.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.4",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^24.10.11",
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "@typescript/native-preview": "7.0.0-dev.20260221.1",
+    "@vitejs/plugin-react": "^5.1.3",
+    "concurrently": "9.2.1",
+    "shadcn": "^3.8.5",
+    "tailwindcss": "^4.1.18",
+    "typescript": "~5.9.3",
+    "tw-animate-css": "^1.4.0",
+    "vite": "^7.3.1"
+  }
+}
