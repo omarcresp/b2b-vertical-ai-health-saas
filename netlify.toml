@@ -1,0 +1,9 @@
+[build]
+publish = "dist"
+command = "bun ci && VITE_WORKOS_REDIRECT_URI=\"$URL/callback\" bunx convex deploy --cmd 'bun run build'"
+
+[build.environment]
+BUN_VERSION = "1.3.8"
+
+[context.deploy-preview]
+command = "bun ci && VITE_WORKOS_REDIRECT_URI=\"$DEPLOY_PRIME_URL/callback\" bunx convex deploy --cmd 'bun run build'"

@@ -22,17 +22,26 @@ export class ErrorBoundary extends Component<
           <>
             <p>
               Add the following environment variables to your{" "}
-              <code>.env.local</code> file:
+              <code className="bg-muted text-muted-foreground rounded px-1 py-0.5">
+                .env.local
+              </code>{" "}
+              file:
             </p>
             <ul className="pl-4 list-disc">
               <li>
-                <code>VITE_WORKOS_CLIENT_ID="your-client-id"</code>
+                <code className="bg-muted text-muted-foreground rounded px-1 py-0.5">
+                  VITE_WORKOS_CLIENT_ID="your-client-id"
+                </code>
               </li>
               <li>
-                <code>VITE_WORKOS_API_HOSTNAME="api.workos.com"</code>
+                <code className="bg-muted text-muted-foreground rounded px-1 py-0.5">
+                  VITE_WORKOS_API_HOSTNAME="api.workos.com"
+                </code>
               </li>
               <li>
-                <code>VITE_WORKOS_REDIRECT_URI="your-redirect-uri"</code>
+                <code className="bg-muted text-muted-foreground rounded px-1 py-0.5">
+                  VITE_WORKOS_REDIRECT_URI="your-redirect-uri"
+                </code>
               </li>
             </ul>
             <p>
@@ -60,8 +69,8 @@ export class ErrorBoundary extends Component<
   render() {
     if (this.state.error !== null) {
       return (
-        <div className="bg-red-500/20 border border-red-500/50 p-8 flex flex-col gap-4 container mx-auto">
-          <h1 className="text-xl font-bold">
+        <div className="bg-destructive/10 border-destructive/40 text-foreground container mx-auto flex flex-col gap-4 rounded-lg border p-8">
+          <h1 className="text-destructive text-xl font-bold">
             Caught an error while rendering:
           </h1>
           {this.state.error}

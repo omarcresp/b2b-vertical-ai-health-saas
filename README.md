@@ -52,6 +52,52 @@ bun run typecheck:compat
 bun run lint:changed
 ```
 
+## Deploy on Netlify with Convex
+
+This repo uses file-based Netlify config in `netlify.toml`. Netlify build/publish
+settings should come from the repo config.
+
+Build commands used by Netlify:
+
+- Production: `bun ci && VITE_WORKOS_REDIRECT_URI="$URL/callback" bunx convex deploy --cmd 'bun run build'`
+- Deploy Preview: `bun ci && VITE_WORKOS_REDIRECT_URI="$DEPLOY_PRIME_URL/callback" bunx convex deploy --cmd 'bun run build'`
+
+### 1) Convex dashboard setup
+
+1. Open your Convex project settings and create a **Production Deploy Key**.
+2. Create a **Preview Deploy Key**.
+3. Confirm `WORKOS_CLIENT_ID` exists in the production deployment environment.
+4. Add project default environment variable `WORKOS_CLIENT_ID` so preview deployments can load `convex/auth.config.ts`.
+
+### 2) Netlify site setup
+
+1. Import this repository into Netlify.
+2. Set production branch to `main`.
+3. Ensure Netlify uses `netlify.toml` from the repo and publishes `dist`.
+4. Add `CONVEX_DEPLOY_KEY` with context-specific values:
+   - Production context: production deploy key.
+   - Deploy Preview context: preview deploy key.
+5. Add `VITE_WORKOS_CLIENT_ID` for all contexts (same value in production and previews).
+6. Trigger the first deploy from `main`.
+
+### 3) WorkOS validation
+
+1. After production deploy, verify WorkOS callback/homepage include:
+   - `https://<site>.netlify.app/callback`
+   - `https://<site>.netlify.app`
+2. Open a PR and wait for Deploy Preview.
+3. Verify callback/homepage use:
+   - `https://deploy-preview-<id>--<site>.netlify.app/callback`
+   - `https://deploy-preview-<id>--<site>.netlify.app`
+
+### Optional manual preview command
+
+Use Convex preview run mode when needed:
+
+```sh
+bunx convex deploy --preview-run --cmd "bun run build"
+```
+
 ## Learn more
 
 To learn more about developing your project with Convex, check out:

@@ -5,17 +5,25 @@ import {
   useMutation,
   useQuery,
 } from "convex/react";
+import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { api } from "../convex/_generated/api";
 
 export default function App() {
   return (
     <>
-      <header>
-        Convex + React + WorkOS AuthKit + Shadcn
-        <AuthButton />
+      <header className="border-border border-b">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-6 py-3">
+          <p className="text-muted-foreground text-sm font-medium">
+            Convex + React + WorkOS AuthKit + Shadcn
+          </p>
+          <div className="flex items-center gap-2">
+            <ModeToggle />
+            <AuthButton />
+          </div>
+        </div>
       </header>
-      <main className="p-8 flex flex-col gap-16">
+      <main className="flex flex-col gap-16 p-8">
         <h1 className="text-4xl font-bold text-center">
           Convex + React + WorkOS AuthKit + Shadcn
         </h1>
@@ -23,7 +31,7 @@ export default function App() {
           <Content />
         </Authenticated>
         <Unauthenticated>
-          <div className="flex flex-col gap-8 w-96 mx-auto">
+          <div className="bg-card text-card-foreground border-border mx-auto flex w-full max-w-sm flex-col gap-8 rounded-lg border p-6 shadow-sm">
             <p>Log in to see the numbers</p>
             <AuthButton />
           </div>
@@ -63,7 +71,7 @@ function Content() {
   }
 
   return (
-    <div className="flex flex-col gap-8 max-w-lg mx-auto">
+    <div className="mx-auto flex max-w-lg flex-col gap-8">
       <p>Welcome {viewer ?? "Anonymous"}!</p>
       <p>
         Click the button below and open this page in another window - this data
@@ -86,14 +94,14 @@ function Content() {
       </p>
       <p>
         Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
+        <code className="bg-muted text-muted-foreground rounded-md px-1 py-0.5 font-mono text-sm font-bold">
           convex/myFunctions.ts
         </code>{" "}
         to change your backend
       </p>
       <p>
         Edit{" "}
-        <code className="text-sm font-bold font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded-md">
+        <code className="bg-muted text-muted-foreground rounded-md px-1 py-0.5 font-mono text-sm font-bold">
           src/App.tsx
         </code>{" "}
         to change your frontend
@@ -101,7 +109,7 @@ function Content() {
       <div className="flex flex-col">
         <p className="text-lg font-bold">Useful resources:</p>
         <div className="flex gap-2">
-          <div className="flex flex-col gap-2 w-1/2">
+          <div className="flex w-1/2 flex-col gap-2">
             <ResourceCard
               title="Convex docs"
               description="Read comprehensive documentation for all Convex features."
@@ -114,7 +122,7 @@ function Content() {
               href="https://www.typescriptlang.org/docs/handbook/2/basic-types.html"
             />
           </div>
-          <div className="flex flex-col gap-2 w-1/2">
+          <div className="flex w-1/2 flex-col gap-2">
             <ResourceCard
               title="Templates"
               description="Browse our collection of templates to get started quickly."
@@ -143,11 +151,11 @@ function ResourceCard({
   href: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 bg-slate-200 dark:bg-slate-800 p-4 rounded-md h-28 overflow-auto">
+    <div className="bg-card text-card-foreground border-border flex h-28 flex-col gap-2 overflow-auto rounded-md border p-4">
       <a href={href} className="text-sm underline hover:no-underline">
         {title}
       </a>
-      <p className="text-xs">{description}</p>
+      <p className="text-muted-foreground text-xs">{description}</p>
     </div>
   );
 }
