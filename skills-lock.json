@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "automate-whatsapp": {
+      "source": "gokapso/agent-skills",
+      "sourceType": "github",
+      "computedHash": "9b3f7e88441155a01863550cc01db8549494c84ce39ee2d89c8594bd768abe79"
+    },
     "avoid-feature-creep": {
       "source": "waynesutton/convexskills",
       "sourceType": "github",
@@ -25,6 +30,16 @@
       "source": "anthropics/skills",
       "sourceType": "github",
       "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "integrate-whatsapp": {
+      "source": "gokapso/agent-skills",
+      "sourceType": "github",
+      "computedHash": "2614f0fef9fbcd1834c06010d563c4fd6d4232016820ca61d28520b26925c245"
+    },
+    "observe-whatsapp": {
+      "source": "gokapso/agent-skills",
+      "sourceType": "github",
+      "computedHash": "b5a3ef10ef706037657eb99c234f8bd0bd5ab6843a814a8caaa36f7c3658b7ed"
     },
     "shadcn-ui": {
       "source": "google-labs-code/stitch-skills",
