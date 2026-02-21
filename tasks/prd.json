@@ -1,0 +1,214 @@
+{
+  "name": "WhatsApp Scheduling Agent MVP (CDMX + Bogota Dental)",
+  "branchName": "ralph/whatsapp-scheduling-agent-mvp",
+  "description": "Build an MVP for independent dental clinics in CDMX and Bogota that reduces no-shows and front-desk workload through WhatsApp-based appointment confirmation, rescheduling, and cancellation with dynamic single-provider availability.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Clinic and provider setup",
+      "description": "As an admin, I want to configure clinic and provider schedule basics so that the system can compute availability.",
+      "acceptanceCriteria": [
+        "Add schema tables for clinic, provider, provider weekly schedule, and appointments in convex/schema.ts.",
+        "Support weekly schedule windows, fixed appointment duration, slot step, lead time, and booking horizon.",
+        "Seed/create flow exists to create one clinic + one provider + schedule in local/dev environment.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    },
+    {
+      "id": "US-002",
+      "title": "Appointment source-of-truth in custom DB",
+      "description": "As front desk staff, I want appointments stored in one internal system so that WhatsApp actions can safely update them.",
+      "acceptanceCriteria": [
+        "Add Convex mutations/queries for create/read/update appointment status in convex/scheduling.ts (or equivalent domain file).",
+        "Appointment model supports states: scheduled, canceled, with confirm timestamp.",
+        "Every status-changing mutation is idempotent for retry safety.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Dynamic availability engine",
+      "description": "As the agent, I want to retrieve only valid open slots so that patients can reschedule without double-booking.",
+      "acceptanceCriteria": [
+        "Implement slot search using provider weekly windows, lead time, booking horizon, and fixed duration.",
+        "Exclude conflicts with existing scheduled appointments.",
+        "Return top N candidate slots in clinic-local time labels and UTC timestamps.",
+        "Reject booking attempts for stale/occupied slots.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001",
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Outbound reminder campaign",
+      "description": "As front desk staff, I want automatic T-24h reminders so that patients can confirm or act without a phone call.",
+      "acceptanceCriteria": [
+        "Add scheduled job/action to find upcoming appointments and send reminder templates via Kapso.",
+        "Reminder template contains clear actions: confirm, reschedule, cancel.",
+        "Outbound message records are stored with status metadata for audit/debug.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-002"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "WhatsApp inbound webhook ingestion",
+      "description": "As the system, I want to ingest inbound WhatsApp events so that patient responses trigger workflow updates.",
+      "acceptanceCriteria": [
+        "Add webhook endpoint in convex/http.ts for Kapso events.",
+        "Validate webhook signature and enforce idempotency key handling.",
+        "Persist inbound messages and thread state linked to clinic + patient phone.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-001"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Agent tool orchestration",
+      "description": "As a patient, I want natural chat in Spanish that still results in precise scheduling actions.",
+      "acceptanceCriteria": [
+        "Agent handles intents: confirm, reschedule, cancel, human handoff.",
+        "Agent uses tools/functions for availability lookup and booking writes; no free-text invented times.",
+        "On low confidence or unsupported request, agent routes to human handoff state.",
+        "Conversation state supports awaiting slot pick and completion back to idle.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-003",
+        "US-005"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Reschedule/confirm/cancel transaction flow",
+      "description": "As a patient, I want my selected action reflected immediately so that I trust the system.",
+      "acceptanceCriteria": [
+        "Confirm action marks appointment confirmed and returns confirmation message.",
+        "Cancel action marks appointment canceled and returns cancellation message.",
+        "Reschedule action updates appointment start/end to selected valid slot and returns new confirmation.",
+        "All three actions produce consistent DB + WhatsApp message history.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-002",
+        "US-003",
+        "US-006"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Minimal operations console",
+      "description": "As front desk staff, I want a simple view of active conversations and statuses so that I can intervene when needed.",
+      "acceptanceCriteria": [
+        "Add minimal UI in src/ showing upcoming appointments and conversation state.",
+        "Include manual handoff control and visible handoff status.",
+        "UI clearly shows last inbound/outbound message timestamps per thread.",
+        "Browser verification confirms usability on desktop and mobile viewport.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes",
+        "Verify in browser (manual visual verification)"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-005",
+        "US-007"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Pilot analytics and ROI output",
+      "description": "As founder, I want pilot metrics captured weekly so that I can sell with outcomes.",
+      "acceptanceCriteria": [
+        "Track baseline and weekly metrics: no-shows, confirmations, reschedules, cancellations, inbound call proxy.",
+        "Export/produce clinic-level weekly summary for 5 pilots.",
+        "Case-study template is generated with before/after metrics for at least one clinic.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "",
+      "dependsOn": [
+        "US-004",
+        "US-007"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Founder-led GTM pilot pipeline",
+      "description": "As founder, I want a defined outreach and onboarding motion so that we can close 5 paid pilots quickly.",
+      "acceptanceCriteria": [
+        "Define ICP list and outreach script for CDMX and Bogota dental clinics.",
+        "Define paid pilot offer, pricing structure, and onboarding checklist.",
+        "Define weekly cadence: outreach volume, demos booked, pilots activated, retention checkpoints.",
+        "bun run typecheck passes",
+        "bun run build passes",
+        "bun run lint passes",
+        "bun run format:check passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "",
+      "dependsOn": []
+    }
+  ]
+}
