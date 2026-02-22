@@ -47,7 +47,7 @@ Execution policy per run:
 4. Run targeted validation for changed code (typecheck/lint/tests only as needed for the slice).
 5. Update tasks/cleanup.md:
    - Set chosen task to IN_PROGRESS when starting.
-   - Set to DONE when acceptance criteria are met and commit changes.
+   - Set to DONE when acceptance criteria are met and commit changes (include task name in commit).
    - Set to BLOCKED with a short blocker note if you cannot continue.
    - Add one short Progress Log entry with date and what changed.
 

@@ -31,10 +31,10 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 ## Status Board
 | Status | Count |
 |---|---:|
-| TODO | 16 |
+| TODO | 15 |
 | IN_PROGRESS | 0 |
 | BLOCKED | 1 |
-| DONE | 0 |
+| DONE | 1 |
 
 ## Backlog
 | ID | Priority | Title | Status | Dependencies |
@@ -42,7 +42,7 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 | CLN-01 | P3 | Remove vestigial `App.tsx` indirection | TODO | - |
 | CLN-02 | P0 | Split `useSetupModel` God hook | TODO | CLN-01 |
 | CLN-03 | P0 | Centralize app auth computation | TODO | - |
-| CLN-04 | P0 | Remove derived-state reset effect in `AppointmentManager` | TODO | - |
+| CLN-04 | P0 | Remove derived-state reset effect in `AppointmentManager` | DONE | - |
 | CLN-05 | P0 | Remove prop-to-state sync effects for snapshot key | TODO | CLN-10 |
 | CLN-06 | P2 | Replace latest-ref callback pattern with `useEffectEvent` strategy | TODO | - |
 | CLN-07 | P0 | Add timeout/error path to auth wait guard | TODO | - |
@@ -103,7 +103,7 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
   - `src/hooks/useAppAuth.ts` (new)
 
 ### CLN-04: Remove derived-state reset effect in `AppointmentManager`
-- Status: TODO
+- Status: DONE
 - Problem: `useEffect` resets slot state after render, causing avoidable extra render and temporary invalid state.
 - Scope:
   - Replace effect-driven reset with render-time derived value.
@@ -269,3 +269,4 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 
 ## Progress Log
 - 2026-02-22: Converted cleanup report into PRD-style backlog with explicit status lifecycle for agent loop execution.
+- 2026-02-22: Removed slot reset effect; derived effective slot selection during render in `AppointmentManager`.

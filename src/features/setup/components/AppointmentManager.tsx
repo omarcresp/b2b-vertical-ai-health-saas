@@ -2,7 +2,7 @@ import { useConvexMutation } from "@convex-dev/react-query";
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { usePaginatedQuery } from "convex/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "#convex/_generated/api";
 import type { Id } from "#convex/_generated/dataModel";
@@ -177,16 +177,11 @@ function AppointmentManagerContent({
     ? availableSlots
     : [];
 
-  useEffect(() => {
-    if (
-      slotValue &&
-      !normalizedAvailableSlots.some(
-        (slot) => `${slot.startAtUtcMs}` === slotValue,
-      )
-    ) {
-      setSlotValue("");
-    }
-  }, [normalizedAvailableSlots, slotValue]);
+  const effectiveSlotValue = normalizedAvailableSlots.some(
+    (slot) => `${slot.startAtUtcMs}` === slotValue,
+  )
+    ? slotValue
+    : "";
 
   const submitCreate = () => {
     setFormError(null);
@@ -195,7 +190,7 @@ function AppointmentManagerContent({
 
     const patientNameValue = patientName.trim();
     const patientPhoneValue = patientPhone.trim();
-    const parsedSlot = Number(slotValue);
+    const parsedSlot = Number(effectiveSlotValue);
 
     if (
       !patientNameValue ||
@@ -262,7 +257,7 @@ function AppointmentManagerContent({
           <select
             className={INPUT_CLASS}
             onChange={(event) => setSlotValue(event.target.value)}
-            value={slotValue}
+            value={effectiveSlotValue}
           >
             <option value="">--</option>
             {normalizedAvailableSlots.map((slot) => (

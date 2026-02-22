@@ -1,0 +1,10 @@
+Removed the effect-driven slot reset in AppointmentManager by deriving the effective slot during render and using it for both the select value and submit parsing, aligning with React guidance to avoid syncing derived state with effects and extra render passes. ([react.dev](https://react.dev/learn/you-might-not-need-an-effect?utm_source=openai))  
+- `src/features/setup/components/AppointmentManager.tsx` now computes `effectiveSlotValue` instead of using a reset effect, keeping the UI and submit path in sync without post-render updates.  
+- `tasks/cleanup.md` marks CLN-04 as DONE and logs today’s progress.
+
+Validation: `bunx biome check src/features/setup/components/AppointmentManager.tsx --error-on-warnings`  
+Committed: `Remove AppointmentManager slot reset effect`
+
+Next steps (pick one):
+1) CLN-03 centralize app auth computation  
+2) CLN-07 add timeout/error path to auth wait guard
