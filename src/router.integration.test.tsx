@@ -86,6 +86,9 @@ function renderAtPath(pathname: string, auth?: Partial<RouterContext["auth"]>) {
       isLoading,
       isAuthenticated,
     },
+    queryClient: {
+      prefetchQuery: vi.fn().mockResolvedValue(undefined),
+    } as unknown as RouterContext["queryClient"],
   };
 
   const router = createRouter({

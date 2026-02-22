@@ -1,8 +1,11 @@
+import { useConvexMutation } from "@convex-dev/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@workos-inc/authkit-react";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "#convex/_generated/api";
+import { myPreferencesQuery } from "@/lib/queries";
 import {
   DEFAULT_LOCALE,
   type SupportedLocale,
@@ -15,7 +18,6 @@ export function useLocalePreferenceModel() {
   const { t, i18n } = useTranslation(["setup", "common"]);
 
   const [localeError, setLocaleError] = useState<string | null>(null);
-  const [isSavingLocale, setIsSavingLocale] = useState(false);
   const [optimisticLocale, setOptimisticLocale] =
     useState<SupportedLocale | null>(null);
 
@@ -24,11 +26,19 @@ export function useLocalePreferenceModel() {
     i18nRef.current = i18n;
   }, [i18n]);
 
-  const setMyLocale = useMutation(api.userPreferences.setMyLocale);
-  const preferences = useQuery(
-    api.userPreferences.getMyPreferences,
-    isAuthenticated ? {} : "skip",
-  );
+  const convexSetMyLocale = useConvexMutation(api.userPreferences.setMyLocale);
+  const setMyLocaleMutation = useMutation({
+    mutationFn: convexSetMyLocale,
+    onError: () => {
+      setLocaleError(t("common:locale.saveError"));
+      setOptimisticLocale(null);
+    },
+  });
+
+  const { data: preferences } = useQuery({
+    ...myPreferencesQuery(),
+    enabled: isAuthenticated,
+  });
 
   const currentLocale =
     i18n.resolvedLanguage ?? i18n.language ?? DEFAULT_LOCALE;
@@ -65,21 +75,13 @@ export function useLocalePreferenceModel() {
       return;
     }
 
-    try {
-      setIsSavingLocale(true);
-      await setMyLocale({ locale });
-    } catch {
-      setLocaleError(t("common:locale.saveError"));
-      setOptimisticLocale(null);
-    } finally {
-      setIsSavingLocale(false);
-    }
+    setMyLocaleMutation.mutate({ locale });
   };
 
   return {
     currentLocale,
     localeError,
-    isSavingLocale,
+    isSavingLocale: setMyLocaleMutation.isPending,
     onLocaleChange,
   };
 }

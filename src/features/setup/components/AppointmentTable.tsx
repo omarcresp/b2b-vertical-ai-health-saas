@@ -26,7 +26,7 @@ export function AppointmentTable({
   runRowAction: (
     appointmentId: Id<"appointments">,
     action: "confirm" | "cancel",
-  ) => Promise<void>;
+  ) => void;
 }>) {
   const { t } = useTranslation(["setup", "common"]);
 

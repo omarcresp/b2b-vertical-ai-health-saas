@@ -1,8 +1,11 @@
+import { useConvexMutation } from "@convex-dev/react-query";
 import { usePostHog } from "@posthog/react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@workos-inc/authkit-react";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { api } from "#convex/_generated/api";
 import { CITY_OPTIONS } from "@/features/setup/constants";
 import type {
   SetupDraft,
@@ -11,7 +14,7 @@ import type {
 } from "@/features/setup/types";
 import { buildSetupPayload } from "@/features/setup/utils/payload";
 import { readLocalizedErrorMessage } from "@/lib/i18n-errors";
-import { api } from "../../../../convex/_generated/api";
+import { latestSetupKeyQuery, setupSnapshotQuery } from "@/lib/queries";
 
 type UseSetupModelArgs = {
   initialSnapshotKey?: SnapshotKey | null;
@@ -45,7 +48,6 @@ export function useSetupModel({
   const [snapshotKey, setSnapshotKey] = useState<SnapshotKey | null>(
     initialSnapshotKey,
   );
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const nextWindowId = useRef(2);
   const onSnapshotKeyChangeRef = useRef(onSnapshotKeyChange);
@@ -54,15 +56,47 @@ export function useSetupModel({
     onSnapshotKeyChangeRef.current = onSnapshotKeyChange;
   }, [onSnapshotKeyChange]);
 
-  const upsertSetup = useMutation(api.setup.upsertClinicProviderSetup);
-  const snapshot = useQuery(
-    api.setup.getSetupSnapshot,
-    isAuthenticated && snapshotKey ? snapshotKey : "skip",
+  const convexUpsertSetup = useConvexMutation(
+    api.setup.upsertClinicProviderSetup,
   );
-  const latestSetupKey = useQuery(
-    api.setup.getMyLatestSetupKey,
-    isAuthenticated ? { intent: "bootstrap" } : "skip",
-  );
+  const upsertSetup = useMutation({
+    mutationFn: convexUpsertSetup,
+    onSuccess: (result, variables) => {
+      setSnapshotKey(result);
+      onSnapshotKeyChangeRef.current?.(result);
+      setSubmitMessage(t("setup:submit.saved"));
+      posthog.capture("setup_submitted", {
+        clinic_name: variables.clinicName,
+        city: variables.city,
+        appointment_duration_min: variables.appointmentDurationMin,
+        slot_step_min: variables.slotStepMin,
+        booking_horizon_days: variables.bookingHorizonDays,
+        window_count: variables.weeklyWindows.length,
+        clinic_slug: result.clinicSlug,
+      });
+    },
+    onError: (error, variables) => {
+      const errorMessage = readLocalizedErrorMessage(error, t);
+      setFormError(errorMessage);
+      posthog.capture("setup_submit_failed", {
+        clinic_name: variables.clinicName,
+        error_message: errorMessage,
+      });
+      posthog.captureException(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    },
+  });
+
+  const { data: snapshot } = useQuery({
+    ...setupSnapshotQuery(snapshotKey ?? { clinicSlug: "", providerName: "" }),
+    enabled: isAuthenticated && snapshotKey !== null,
+  });
+
+  const { data: latestSetupKey } = useQuery({
+    ...latestSetupKeyQuery(),
+    enabled: isAuthenticated,
+  });
   const bootstrappedSetupKey = latestSetupKey ?? null;
 
   const timezone = useMemo(
@@ -147,7 +181,7 @@ export function useSetupModel({
     onSnapshotKeyChangeRef.current?.(bootstrappedSetupKey);
   }, [bootstrappedSetupKey, snapshotKey]);
 
-  const submitSetup = async () => {
+  const submitSetup = () => {
     setFormError(null);
     setSubmitMessage(null);
 
@@ -157,35 +191,7 @@ export function useSetupModel({
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
-      const result = await upsertSetup(built.payload);
-      setSnapshotKey(result);
-      onSnapshotKeyChangeRef.current?.(result);
-      setSubmitMessage(t("setup:submit.saved"));
-      posthog.capture("setup_submitted", {
-        clinic_name: draft.clinicName,
-        city: draft.city,
-        appointment_duration_min: draft.appointmentDurationMin,
-        slot_step_min: draft.slotStepMin,
-        booking_horizon_days: draft.bookingHorizonDays,
-        window_count: windows.length,
-        clinic_slug: result.clinicSlug,
-      });
-    } catch (error) {
-      const errorMessage = readLocalizedErrorMessage(error, t);
-      setFormError(errorMessage);
-      posthog.capture("setup_submit_failed", {
-        clinic_name: draft.clinicName,
-        error_message: errorMessage,
-      });
-      posthog.captureException(
-        error instanceof Error ? error : new Error(String(error)),
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    upsertSetup.mutate(built.payload);
   };
 
   return {
@@ -196,7 +202,7 @@ export function useSetupModel({
     snapshotKey,
     setSnapshotKey,
     snapshot,
-    isSubmitting,
+    isSubmitting: upsertSetup.isPending,
     timezone,
     setDraftField,
     addWindow,

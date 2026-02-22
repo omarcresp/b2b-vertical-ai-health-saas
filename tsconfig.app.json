@@ -24,7 +24,8 @@
 
     /* Import paths */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "#convex/*": ["./convex/*"]
     }
   },
   "include": ["src"]

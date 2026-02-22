@@ -1,7 +1,11 @@
+import { useConvexMutation } from "@convex-dev/react-query";
 import { usePostHog } from "@posthog/react";
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { usePaginatedQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { api } from "#convex/_generated/api";
+import type { Id } from "#convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/features/setup/components/fields";
 import {
@@ -12,8 +16,7 @@ import {
 import type { SetupModel } from "@/features/setup/hooks/useSetupModel";
 import { formatDateInput } from "@/features/setup/utils/date";
 import { readLocalizedErrorMessage } from "@/lib/i18n-errors";
-import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import { availableSlotsQuery } from "@/lib/queries";
 import { AppointmentTable } from "./AppointmentTable";
 
 const APPOINTMENT_PAGE_SIZE = 25;
@@ -61,17 +64,6 @@ function AppointmentManagerContent({
     action: "confirm" | "cancel";
   } | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-
-  const createAppointmentForOwner = useMutation(
-    api.scheduling.createAppointmentForOwner,
-  );
-  const confirmAppointmentForOwner = useMutation(
-    api.scheduling.confirmAppointmentForOwner,
-  );
-  const cancelAppointmentForOwner = useMutation(
-    api.scheduling.cancelAppointmentForOwner,
-  );
 
   const rangeStartUtcMs = useRef(Date.now());
   const availabilityNowUtcMs = useRef(Math.floor(Date.now() / 60_000) * 60_000);
@@ -79,6 +71,70 @@ function AppointmentManagerContent({
     () => rangeStartUtcMs.current + 30 * 24 * 60 * 60 * 1_000,
     [],
   );
+
+  const convexCreateAppointment = useConvexMutation(
+    api.scheduling.createAppointmentForOwner,
+  );
+  const createMutation = useMutation({
+    mutationFn: convexCreateAppointment,
+    onSuccess: (_, variables) => {
+      setSubmitMessage(t("setup:appointments.messages.created"));
+      setPatientName("");
+      setPatientPhone("");
+      posthog.capture("appointment_created", {
+        clinic_slug: variables.clinicSlug,
+        provider_name: variables.providerName,
+        date: dateValue,
+        start_at_utc_ms: variables.startAtUtcMs,
+      });
+    },
+    onError: (error, variables) => {
+      const errorMessage = readLocalizedErrorMessage(error, t);
+      setFormError(errorMessage);
+      posthog.capture("appointment_create_failed", {
+        clinic_slug: variables.clinicSlug,
+        provider_name: variables.providerName,
+        error_message: errorMessage,
+      });
+      posthog.captureException(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    },
+  });
+
+  const convexConfirmAppointment = useConvexMutation(
+    api.scheduling.confirmAppointmentForOwner,
+  );
+  const confirmMutation = useMutation({
+    mutationFn: convexConfirmAppointment,
+    onSuccess: (_, variables) => {
+      setPendingRowAction(null);
+      posthog.capture("appointment_confirmed", {
+        appointment_id: variables.appointmentId,
+      });
+    },
+    onError: (error) => {
+      setPendingRowAction(null);
+      setRowError(readLocalizedErrorMessage(error, t));
+    },
+  });
+
+  const convexCancelAppointment = useConvexMutation(
+    api.scheduling.cancelAppointmentForOwner,
+  );
+  const cancelMutation = useMutation({
+    mutationFn: convexCancelAppointment,
+    onSuccess: (_, variables) => {
+      setPendingRowAction(null);
+      posthog.capture("appointment_cancelled", {
+        appointment_id: variables.appointmentId,
+      });
+    },
+    onError: (error) => {
+      setPendingRowAction(null);
+      setRowError(readLocalizedErrorMessage(error, t));
+    },
+  });
 
   const {
     results: appointmentResults,
@@ -97,12 +153,14 @@ function AppointmentManagerContent({
     },
   );
 
-  const availableSlots = useQuery(api.scheduling.listAvailableSlotsForOwner, {
-    clinicSlug: snapshot.clinic.slug,
-    providerName: snapshot.provider.name,
-    dateLocal: dateValue,
-    nowUtcMs: availabilityNowUtcMs.current,
-    limit: 10,
+  const { data: availableSlots } = useQuery({
+    ...availableSlotsQuery({
+      clinicSlug: snapshot.clinic.slug,
+      providerName: snapshot.provider.name,
+      dateLocal: dateValue,
+      nowUtcMs: availabilityNowUtcMs.current,
+      limit: 10,
+    }),
   });
 
   const normalizedAppointments = Array.isArray(appointmentResults)
@@ -130,7 +188,7 @@ function AppointmentManagerContent({
     }
   }, [normalizedAvailableSlots, slotValue]);
 
-  const submitCreate = async () => {
+  const submitCreate = () => {
     setFormError(null);
     setSubmitMessage(null);
     setRowError(null);
@@ -149,63 +207,26 @@ function AppointmentManagerContent({
       return;
     }
 
-    try {
-      setIsCreating(true);
-      await createAppointmentForOwner({
-        clinicSlug: snapshot.clinic.slug,
-        providerName: snapshot.provider.name,
-        patientName: patientNameValue,
-        patientPhone: patientPhoneValue,
-        startAtUtcMs: parsedSlot,
-      });
-      setSubmitMessage(t("setup:appointments.messages.created"));
-      setPatientName("");
-      setPatientPhone("");
-      posthog.capture("appointment_created", {
-        clinic_slug: snapshot.clinic.slug,
-        provider_name: snapshot.provider.name,
-        date: dateValue,
-        start_at_utc_ms: parsedSlot,
-      });
-    } catch (error) {
-      const errorMessage = readLocalizedErrorMessage(error, t);
-      setFormError(errorMessage);
-      posthog.capture("appointment_create_failed", {
-        clinic_slug: snapshot.clinic.slug,
-        provider_name: snapshot.provider.name,
-        error_message: errorMessage,
-      });
-      posthog.captureException(
-        error instanceof Error ? error : new Error(String(error)),
-      );
-    } finally {
-      setIsCreating(false);
-    }
+    createMutation.mutate({
+      clinicSlug: snapshot.clinic.slug,
+      providerName: snapshot.provider.name,
+      patientName: patientNameValue,
+      patientPhone: patientPhoneValue,
+      startAtUtcMs: parsedSlot,
+    });
   };
 
-  const runRowAction = async (
+  const runRowAction = (
     appointmentId: Id<"appointments">,
     action: "confirm" | "cancel",
   ) => {
     setRowError(null);
     setPendingRowAction({ appointmentId, action });
 
-    try {
-      if (action === "confirm") {
-        await confirmAppointmentForOwner({ appointmentId });
-        posthog.capture("appointment_confirmed", {
-          appointment_id: appointmentId,
-        });
-      } else {
-        await cancelAppointmentForOwner({ appointmentId });
-        posthog.capture("appointment_cancelled", {
-          appointment_id: appointmentId,
-        });
-      }
-    } catch (error) {
-      setRowError(readLocalizedErrorMessage(error, t));
-    } finally {
-      setPendingRowAction(null);
+    if (action === "confirm") {
+      confirmMutation.mutate({ appointmentId });
+    } else {
+      cancelMutation.mutate({ appointmentId });
     }
   };
 
@@ -271,12 +292,8 @@ function AppointmentManagerContent({
         ) : null}
       </div>
 
-      <Button
-        className="mt-4 rounded-xl"
-        onClick={() => void submitCreate()}
-        type="button"
-      >
-        {isCreating
+      <Button className="mt-4 rounded-xl" onClick={submitCreate} type="button">
+        {createMutation.isPending
           ? t("setup:appointments.actions.creating")
           : t("setup:appointments.actions.create")}
       </Button>

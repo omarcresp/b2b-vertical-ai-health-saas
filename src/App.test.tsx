@@ -25,12 +25,14 @@ const {
   mockUseMutation,
   mockUsePaginatedQuery,
   mockUseQuery,
+  mockUseConvexMutation,
   mockSignIn,
   mockSignOut,
 } = vi.hoisted(() => ({
   mockUseMutation: vi.fn(),
   mockUsePaginatedQuery: vi.fn(),
   mockUseQuery: vi.fn(),
+  mockUseConvexMutation: vi.fn(),
   mockSignIn: vi.fn(),
   mockSignOut: vi.fn(),
 }));
@@ -42,9 +44,31 @@ vi.mock("convex/react", () => ({
     isLoading: false,
     isAuthenticated: true,
   }),
-  useMutation: mockUseMutation,
   usePaginatedQuery: mockUsePaginatedQuery,
+}));
+
+vi.mock("@tanstack/react-query", () => ({
   useQuery: mockUseQuery,
+  useMutation: mockUseMutation,
+  QueryClient: vi.fn(() => ({
+    prefetchQuery: vi.fn().mockResolvedValue(undefined),
+  })),
+  QueryClientProvider: ({ children }: { children: ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
+vi.mock("@convex-dev/react-query", () => ({
+  convexQuery: (ref: Parameters<typeof getFunctionName>[0], args: unknown) => ({
+    queryKey: [getFunctionName(ref), args],
+    queryFn: vi.fn(),
+  }),
+  useConvexMutation: mockUseConvexMutation,
+  ConvexQueryClient: vi.fn(() => ({
+    hashFn: () => vi.fn(),
+    queryFn: () => vi.fn(),
+    connect: vi.fn(),
+  })),
 }));
 
 vi.mock("@workos-inc/authkit-react", () => ({
@@ -53,6 +77,7 @@ vi.mock("@workos-inc/authkit-react", () => ({
     signIn: mockSignIn,
     signOut: mockSignOut,
   }),
+  AuthKitProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("@/components/mode-toggle", () => ({
@@ -172,31 +197,40 @@ function mockQueries({
   getAppointments?: () => unknown;
   getAvailableSlots?: () => unknown;
 }) {
-  mockUseQuery.mockImplementation((ref, args) => {
-    if (args === "skip") {
-      return undefined;
-    }
+  mockUseQuery.mockImplementation(
+    ({
+      queryKey,
+      enabled,
+    }: {
+      queryKey: [string, unknown];
+      enabled?: boolean;
+    }) => {
+      if (enabled === false) return { data: undefined };
 
-    const key = apiRefKey(ref);
-    if (key === QUERY_KEY_GET_MY_PREFERENCES) {
-      const resolvedLocale = typeof locale === "function" ? locale() : locale;
-      return resolvedLocale ? { locale: resolvedLocale } : undefined;
-    }
+      const [fnName] = queryKey;
 
-    if (key === QUERY_KEY_LIST_AVAILABLE_SLOTS) {
-      return getAvailableSlots ? getAvailableSlots() : [];
-    }
+      if (fnName === QUERY_KEY_GET_MY_PREFERENCES) {
+        const resolvedLocale = typeof locale === "function" ? locale() : locale;
+        return {
+          data: resolvedLocale ? { locale: resolvedLocale } : undefined,
+        };
+      }
 
-    if (key === QUERY_KEY_GET_SETUP_SNAPSHOT) {
-      return snapshot;
-    }
+      if (fnName === QUERY_KEY_LIST_AVAILABLE_SLOTS) {
+        return { data: getAvailableSlots ? getAvailableSlots() : [] };
+      }
 
-    if (key === QUERY_KEY_GET_MY_LATEST_SETUP) {
-      return latestSetupKey ?? null;
-    }
+      if (fnName === QUERY_KEY_GET_SETUP_SNAPSHOT) {
+        return { data: snapshot };
+      }
 
-    throw new Error(`Unexpected query ref in test: ${key}`);
-  });
+      if (fnName === QUERY_KEY_GET_MY_LATEST_SETUP) {
+        return { data: latestSetupKey ?? null };
+      }
+
+      throw new Error(`Unexpected query ref in test: ${fnName}`);
+    },
+  );
 
   const defaultLoadMore = vi.fn();
   mockUsePaginatedQuery.mockImplementation((ref) => {
@@ -233,7 +267,7 @@ function mockMutations({
     [MUTATION_KEY_UPSERT_SETUP]: upsertSetup,
   } as const;
 
-  mockUseMutation.mockImplementation((ref) => {
+  mockUseConvexMutation.mockImplementation((ref: unknown) => {
     const key = apiRefKey(ref);
     const handler =
       mutationHandlers[key as keyof typeof mutationHandlers] ?? undefined;
@@ -242,8 +276,32 @@ function mockMutations({
       throw new Error(`Unexpected mutation ref in test: ${key}`);
     }
 
-    return vi.fn(async (payload: unknown) => await handler(payload));
+    return handler;
   });
+
+  mockUseMutation.mockImplementation(
+    ({
+      mutationFn,
+      onSuccess,
+      onError,
+    }: {
+      mutationFn: (...args: unknown[]) => Promise<unknown>;
+      onSuccess?: (result: unknown, variables: unknown) => void;
+      onError?: (error: unknown, variables: unknown) => void;
+    }) => ({
+      mutate: vi.fn(async (vars: unknown) => {
+        try {
+          const result = await mutationFn(vars);
+          onSuccess?.(result, vars);
+        } catch (e) {
+          onError?.(e, vars);
+        }
+      }),
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
+  );
 }
 
 describe("App setup flow", () => {
@@ -301,10 +359,17 @@ describe("App setup flow", () => {
       expect(screen.getByText(/Clinica Centro/)).toBeInTheDocument();
     });
 
-    expect(mockUseQuery).toHaveBeenCalledWith(expect.anything(), {
-      clinicSlug: "clinica-centro",
-      providerName: "Dr. Rivera",
-    });
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: [
+          QUERY_KEY_GET_SETUP_SNAPSHOT,
+          expect.objectContaining({
+            clinicSlug: "clinica-centro",
+            providerName: "Dr. Rivera",
+          }),
+        ],
+      }),
+    );
     expect(setLocale).not.toHaveBeenCalled();
   });
 
