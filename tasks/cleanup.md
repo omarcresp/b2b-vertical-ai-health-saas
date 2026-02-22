@@ -31,10 +31,10 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 ## Status Board
 | Status | Count |
 |---|---:|
-| TODO | 13 |
+| TODO | 12 |
 | IN_PROGRESS | 0 |
 | BLOCKED | 1 |
-| DONE | 3 |
+| DONE | 4 |
 
 ## Backlog
 | ID | Priority | Title | Status | Dependencies |
@@ -46,7 +46,7 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 | CLN-05 | P0 | Remove prop-to-state sync effects for snapshot key | TODO | CLN-10 |
 | CLN-06 | P2 | Replace latest-ref callback pattern with `useEffectEvent` strategy | TODO | - |
 | CLN-07 | P0 | Add timeout/error path to auth wait guard | DONE | - |
-| CLN-08 | P0 | Fix stale `availabilityNowUtcMs` ref behavior | TODO | - |
+| CLN-08 | P0 | Fix stale `availabilityNowUtcMs` ref behavior | DONE | - |
 | CLN-09 | P2 | Introduce Suspense boundaries for query-driven screens | TODO | CLN-10 |
 | CLN-10 | P1 | Add `/app/setup` loader prefetching | TODO | - |
 | CLN-11 | P2 | Move appointment form to a form library pattern | TODO | CLN-04 |
@@ -151,7 +151,7 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
   - `src/router.tsx`
 
 ### CLN-08: Fix stale `availabilityNowUtcMs` ref behavior
-- Status: TODO
+- Status: DONE
 - Problem: Current timestamp is frozen at mount and can drift from real time.
 - Scope:
   - Make timestamp refreshed/derived from current time when relevant.
@@ -273,3 +273,4 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 - 2026-02-22: Centralized auth state in `useAppAuth` and migrated router/setup hooks.
 - 2026-02-22: Started CLN-07; researching bounded auth wait handling.
 - 2026-02-22: Completed CLN-07; added auth wait timeout with redirect + test coverage.
+- 2026-02-22: Updated appointment availability clock to refresh on interval to prevent stale slot filtering.

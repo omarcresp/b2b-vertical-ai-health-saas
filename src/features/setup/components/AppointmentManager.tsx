@@ -2,7 +2,7 @@ import { useConvexMutation } from "@convex-dev/react-query";
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { usePaginatedQuery } from "convex/react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "#convex/_generated/api";
 import type { Id } from "#convex/_generated/dataModel";
@@ -20,6 +20,10 @@ import { availableSlotsQuery } from "@/lib/queries";
 import { AppointmentTable } from "./AppointmentTable";
 
 const APPOINTMENT_PAGE_SIZE = 25;
+const MINUTE_MS = 60_000;
+
+const getAvailabilityNowUtcMs = () =>
+  Math.floor(Date.now() / MINUTE_MS) * MINUTE_MS;
 
 type Snapshot = NonNullable<SetupModel["snapshot"]>;
 
@@ -66,11 +70,26 @@ function AppointmentManagerContent({
   const [rowError, setRowError] = useState<string | null>(null);
 
   const rangeStartUtcMs = useRef(Date.now());
-  const availabilityNowUtcMs = useRef(Math.floor(Date.now() / 60_000) * 60_000);
+  const [availabilityNowUtcMs, setAvailabilityNowUtcMs] = useState(
+    getAvailabilityNowUtcMs,
+  );
   const rangeEndUtcMs = useMemo(
     () => rangeStartUtcMs.current + 30 * 24 * 60 * 60 * 1_000,
     [],
   );
+
+  useEffect(() => {
+    const updateAvailabilityNow = () => {
+      const nextNowUtcMs = getAvailabilityNowUtcMs();
+      setAvailabilityNowUtcMs((currentNowUtcMs) =>
+        currentNowUtcMs === nextNowUtcMs ? currentNowUtcMs : nextNowUtcMs,
+      );
+    };
+
+    updateAvailabilityNow();
+    const intervalId = setInterval(updateAvailabilityNow, 30_000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   const convexCreateAppointment = useConvexMutation(
     api.scheduling.createAppointmentForOwner,
@@ -158,7 +177,7 @@ function AppointmentManagerContent({
       clinicSlug: snapshot.clinic.slug,
       providerName: snapshot.provider.name,
       dateLocal: dateValue,
-      nowUtcMs: availabilityNowUtcMs.current,
+      nowUtcMs: availabilityNowUtcMs,
       limit: 10,
     }),
   });
