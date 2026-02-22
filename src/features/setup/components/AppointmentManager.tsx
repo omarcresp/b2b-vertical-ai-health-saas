@@ -177,9 +177,7 @@ export function AppointmentManager({ model }: Readonly<{ model: SetupModel }>) {
         {t("setup:appointments.subtitle")}
       </p>
 
-      {!snapshot ? (
-        <SnapshotUnavailable model={model} />
-      ) : (
+      {snapshot ? (
         <>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <TextField
@@ -258,6 +256,8 @@ export function AppointmentManager({ model }: Readonly<{ model: SetupModel }>) {
             runRowAction={runRowAction}
           />
         </>
+      ) : (
+        <SnapshotUnavailable model={model} />
       )}
     </section>
   );

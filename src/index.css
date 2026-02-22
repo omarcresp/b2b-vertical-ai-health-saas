@@ -2,7 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(
+    .dark *
+  )); /* NOSONAR - Tailwind CSS v4 custom directive */
 
 @theme inline {
   --color-background: var(--background);

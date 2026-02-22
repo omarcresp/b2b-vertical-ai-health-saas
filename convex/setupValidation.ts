@@ -28,6 +28,8 @@ export class SetupValidationError extends Error {
 }
 
 const MAX_CLINIC_SLUG_INPUT_LENGTH = 120;
+const COMBINING_MARK_PATTERN = /[\u0300-\u036f]/u;
+const SLUG_TOKEN_PATTERN = /[a-z0-9]+/gu;
 
 function assertInteger(value: number, fieldName: string, code: SetupErrorCode) {
   if (!Number.isInteger(value)) {
@@ -86,13 +88,13 @@ export function normalizeClinicSlug(value: string) {
     );
   }
 
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/gu, "")
-    .replace(/[^a-z0-9]+/gu, "-")
-    .replace(/(^-+)|(-+$)/g, "");
+  const withoutCombiningMarks = Array.from(
+    value.trim().toLowerCase().normalize("NFKD"),
+  )
+    .filter((character) => !COMBINING_MARK_PATTERN.test(character))
+    .join("");
+  const normalized =
+    withoutCombiningMarks.match(SLUG_TOKEN_PATTERN)?.join("-") ?? "";
 
   if (!normalized) {
     throw new SetupValidationError(

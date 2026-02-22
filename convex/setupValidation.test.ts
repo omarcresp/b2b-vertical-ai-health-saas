@@ -12,6 +12,14 @@ describe("setupValidation", () => {
       "clinica-bogota-norte",
     );
     expect(normalizeClinicSlug("Clínica Centro")).toBe("clinica-centro");
+    expect(normalizeClinicSlug("--- Clínica Norte ---")).toBe("clinica-norte");
+    expect(normalizeClinicSlug("Médico 1 / Bogotá")).toBe("medico-1-bogota");
+  });
+
+  it("rejects slug inputs that normalize to only separators", () => {
+    expect(() => normalizeClinicSlug("---")).toThrow(
+      "Clinic slug cannot be empty after normalization.",
+    );
   });
 
   it("rejects overly long slug source values before regex normalization", () => {
