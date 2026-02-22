@@ -31,17 +31,17 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 ## Status Board
 | Status | Count |
 |---|---:|
-| TODO | 15 |
+| TODO | 14 |
 | IN_PROGRESS | 0 |
 | BLOCKED | 1 |
-| DONE | 1 |
+| DONE | 2 |
 
 ## Backlog
 | ID | Priority | Title | Status | Dependencies |
 |---|---:|---|---|---|
 | CLN-01 | P3 | Remove vestigial `App.tsx` indirection | TODO | - |
 | CLN-02 | P0 | Split `useSetupModel` God hook | TODO | CLN-01 |
-| CLN-03 | P0 | Centralize app auth computation | TODO | - |
+| CLN-03 | P0 | Centralize app auth computation | DONE | - |
 | CLN-04 | P0 | Remove derived-state reset effect in `AppointmentManager` | DONE | - |
 | CLN-05 | P0 | Remove prop-to-state sync effects for snapshot key | TODO | CLN-10 |
 | CLN-06 | P2 | Replace latest-ref callback pattern with `useEffectEvent` strategy | TODO | - |
@@ -88,7 +88,7 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
   - new focused hook files under `src/features/setup/hooks/`
 
 ### CLN-03: Centralize app auth computation
-- Status: TODO
+- Status: DONE
 - Problem: Auth composition logic duplicated in multiple locations.
 - Scope:
   - Add shared hook `useAppAuth`.
@@ -270,3 +270,4 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 ## Progress Log
 - 2026-02-22: Converted cleanup report into PRD-style backlog with explicit status lifecycle for agent loop execution.
 - 2026-02-22: Removed slot reset effect; derived effective slot selection during render in `AppointmentManager`.
+- 2026-02-22: Centralized auth state in `useAppAuth` and migrated router/setup hooks.

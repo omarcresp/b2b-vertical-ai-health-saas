@@ -1,10 +1,9 @@
 import { useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useAuth } from "@workos-inc/authkit-react";
-import { useConvexAuth } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "#convex/_generated/api";
+import { useAppAuth } from "@/hooks/useAppAuth";
 import { myPreferencesQuery } from "@/lib/queries";
 import {
   DEFAULT_LOCALE,
@@ -12,9 +11,7 @@ import {
 } from "../../../../shared/locales";
 
 export function useLocalePreferenceModel() {
-  const { user } = useAuth();
-  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
-  const isAuthenticated = Boolean(user) && isConvexAuthenticated;
+  const { isAuthenticated } = useAppAuth();
   const { t, i18n } = useTranslation(["setup", "common"]);
 
   const [localeError, setLocaleError] = useState<string | null>(null);

@@ -1,8 +1,6 @@
 import { useConvexMutation } from "@convex-dev/react-query";
 import { usePostHog } from "@posthog/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useAuth } from "@workos-inc/authkit-react";
-import { useConvexAuth } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "#convex/_generated/api";
@@ -13,6 +11,7 @@ import type {
   WindowRow,
 } from "@/features/setup/types";
 import { buildSetupPayload } from "@/features/setup/utils/payload";
+import { useAppAuth } from "@/hooks/useAppAuth";
 import { readLocalizedErrorMessage } from "@/lib/i18n-errors";
 import { latestSetupKeyQuery, setupSnapshotQuery } from "@/lib/queries";
 
@@ -25,9 +24,7 @@ export function useSetupModel({
   initialSnapshotKey = null,
   onSnapshotKeyChange,
 }: Readonly<UseSetupModelArgs> = {}) {
-  const { user } = useAuth();
-  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
-  const isAuthenticated = Boolean(user) && isConvexAuthenticated;
+  const { isAuthenticated } = useAppAuth();
   const { t } = useTranslation(["setup", "common"]);
   const posthog = usePostHog();
 

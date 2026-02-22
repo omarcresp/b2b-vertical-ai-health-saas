@@ -1,9 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
-import { useAuth } from "@workos-inc/authkit-react";
-import { useConvexAuth } from "convex/react";
 import { useEffect, useMemo, useRef } from "react";
 import { routeTree } from "./routeTree.gen";
+import { useAppAuth } from "@/hooks/useAppAuth";
 
 export type RouterContext = {
   auth: {
@@ -35,13 +34,7 @@ declare module "@tanstack/react-router" {
 export function AppRouterProvider({
   queryClient,
 }: Readonly<{ queryClient: QueryClient }>) {
-  const { isLoading: isWorkOSLoading, user } = useAuth();
-  const { isLoading: isConvexLoading, isAuthenticated: isConvexAuthenticated } =
-    useConvexAuth();
-  const hasWorkOSUser = Boolean(user);
-
-  const isLoading = isWorkOSLoading || (hasWorkOSUser && isConvexLoading);
-  const isAuthenticated = hasWorkOSUser && isConvexAuthenticated;
+  const { isAuthenticated, isLoading } = useAppAuth();
 
   const context = useMemo<RouterContext>(
     () => ({
