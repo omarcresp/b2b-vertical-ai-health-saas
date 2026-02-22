@@ -132,14 +132,16 @@ describe("router migration", () => {
     expect(screen.queryByText("Setup screen")).not.toBeInTheDocument();
   });
 
-  it("renders /callback safely", async () => {
-    const user = userEvent.setup();
+  it("auto-redirects unauthenticated users from /callback to WorkOS sign in", async () => {
     renderAtPath("/callback", { isAuthenticated: false });
 
-    const signInButton = await screen.findByRole("button", { name: "Sign in" });
-    await user.click(signInButton);
+    expect(
+      await screen.findByText("Redirecting to sign in..."),
+    ).toBeInTheDocument();
 
-    expect(mockSignIn).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockSignIn).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("updates /app search params after setup and hydrates on refresh", async () => {
