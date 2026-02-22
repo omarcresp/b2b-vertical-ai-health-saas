@@ -183,7 +183,8 @@
       "schedulingForbidden": "No tienes acceso a esta clínica.",
       "schedulingNotFound": "No se encontró el contexto de la cita.",
       "schedulingInvalidPayload": "Carga de cita inválida.",
-      "schedulingInvalidTransition": "La transición de estado de la cita es inválida."
+      "schedulingInvalidTransition": "La transición de estado de la cita es inválida.",
+      "schedulingSlotUnavailable": "El horario seleccionado ya no está disponible."
     }
   }
 }

@@ -36,6 +36,8 @@ const SCHEDULING_ERROR_TRANSLATION_KEYS = {
     "setup:errors.server.schedulingInvalidPayload",
   [SCHEDULING_ERROR_CODES.INVALID_TRANSITION]:
     "setup:errors.server.schedulingInvalidTransition",
+  [SCHEDULING_ERROR_CODES.SLOT_UNAVAILABLE]:
+    "setup:errors.server.schedulingSlotUnavailable",
 } as const satisfies Record<SchedulingErrorCode, TranslationKey>;
 
 function extractErrorCode(error: unknown): string | null {

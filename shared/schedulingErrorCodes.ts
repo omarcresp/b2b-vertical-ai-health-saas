@@ -4,6 +4,7 @@ export const SCHEDULING_ERROR_CODES = {
   NOT_FOUND: "scheduling.not_found",
   INVALID_PAYLOAD: "scheduling.invalid_payload",
   INVALID_TRANSITION: "scheduling.invalid_transition",
+  SLOT_UNAVAILABLE: "scheduling.slot_unavailable",
 } as const;
 
 export type SchedulingErrorCode =

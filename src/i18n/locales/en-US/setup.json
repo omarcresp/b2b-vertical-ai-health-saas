@@ -183,7 +183,8 @@
       "schedulingForbidden": "You do not have access to this clinic.",
       "schedulingNotFound": "Appointment context not found.",
       "schedulingInvalidPayload": "Invalid appointment payload.",
-      "schedulingInvalidTransition": "Appointment status transition is invalid."
+      "schedulingInvalidTransition": "Appointment status transition is invalid.",
+      "schedulingSlotUnavailable": "The selected timeslot is no longer available."
     }
   }
 }

@@ -67,16 +67,25 @@ const DEFAULT_SNAPSHOT = {
   },
 };
 
+function toBogotaUtcMs(dateLocal: string, minuteOfDay: number) {
+  const [year, month, day] = dateLocal.split("-").map(Number);
+  const hour = Math.floor(minuteOfDay / 60);
+  const minute = minuteOfDay % 60;
+  return Date.UTC(year, month - 1, day, hour + 5, minute, 0, 0);
+}
+
 function mockQueries({
   locale = "en-US",
   snapshot,
   latestSetupKey,
   getAppointments,
+  getAvailableSlots,
 }: {
   locale?: SupportedLocale | null;
   snapshot?: unknown;
   latestSetupKey?: { clinicSlug: string; providerName: string } | null;
   getAppointments?: () => unknown[];
+  getAvailableSlots?: () => unknown[];
 }) {
   mockUseQuery.mockImplementation((_ref, args) => {
     if (args === "skip") {
@@ -88,6 +97,10 @@ function mockQueries({
         return undefined;
       }
       return { locale };
+    }
+
+    if ("dateLocal" in args && "nowUtcMs" in args) {
+      return getAvailableSlots ? getAvailableSlots() : [];
     }
 
     if ("rangeStartUtcMs" in args && "rangeEndUtcMs" in args) {
@@ -281,6 +294,15 @@ describe("App setup flow", () => {
       if (
         args &&
         typeof args === "object" &&
+        "dateLocal" in args &&
+        "nowUtcMs" in args
+      ) {
+        return [];
+      }
+
+      if (
+        args &&
+        typeof args === "object" &&
         "rangeStartUtcMs" in args &&
         "rangeEndUtcMs" in args
       ) {
@@ -415,6 +437,7 @@ describe("App setup flow", () => {
       providerName: "Dr. Rivera",
     });
     const setLocale = vi.fn().mockResolvedValue({ locale: "en-US" });
+    const selectedStartAtUtcMs = toBogotaUtcMs("2026-02-23", 540);
 
     let appointmentsState: Array<{
       _id: string;
@@ -476,6 +499,13 @@ describe("App setup flow", () => {
       locale: "en-US",
       snapshot: DEFAULT_SNAPSHOT,
       getAppointments: () => appointmentsState,
+      getAvailableSlots: () => [
+        {
+          startAtUtcMs: selectedStartAtUtcMs,
+          endAtUtcMs: selectedStartAtUtcMs + 30 * 60 * 1_000,
+          label: "09:00 GMT-5 (Bogota)",
+        },
+      ],
     });
 
     render(<App />);
@@ -499,15 +529,17 @@ describe("App setup flow", () => {
     await waitFor(() => {
       expect(
         (timeslotSelect as HTMLSelectElement).querySelector(
-          'option[value="540"]',
+          `option[value="${selectedStartAtUtcMs}"]`,
         ),
       ).not.toBeNull();
     });
-    await user.selectOptions(timeslotSelect, "540");
+    await user.selectOptions(timeslotSelect, `${selectedStartAtUtcMs}`);
     expect((screen.getByLabelText("Date") as HTMLInputElement).value).toBe(
       "2026-02-23",
     );
-    expect((timeslotSelect as HTMLSelectElement).value).toBe("540");
+    expect((timeslotSelect as HTMLSelectElement).value).toBe(
+      `${selectedStartAtUtcMs}`,
+    );
     await user.click(
       screen.getByRole("button", { name: "Create appointment" }),
     );
@@ -518,7 +550,7 @@ describe("App setup flow", () => {
         providerName: "Dr. Rivera",
         patientName: "Maria Gomez",
         patientPhone: "+573001112233",
-        startAtUtcMs: expect.any(Number),
+        startAtUtcMs: selectedStartAtUtcMs,
       });
     });
 
@@ -541,6 +573,87 @@ describe("App setup flow", () => {
         appointmentId: "appointment_1",
       });
       expect(screen.getByText("Canceled")).toBeInTheDocument();
+    });
+  });
+
+  it("shows no-slot state when availability query returns empty", async () => {
+    mockMutations({});
+    mockQueries({
+      locale: "en-US",
+      latestSetupKey: {
+        clinicSlug: "clinica-centro",
+        providerName: "Dr. Rivera",
+      },
+      snapshot: DEFAULT_SNAPSHOT,
+      getAppointments: () => [],
+      getAvailableSlots: () => [],
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("No schedule-based timeslots for the selected date."),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("maps slot-unavailable backend error when create fails", async () => {
+    const user = userEvent.setup();
+    const upsertSetup = vi.fn().mockResolvedValue({
+      clinicSlug: "clinica-centro",
+      providerName: "Dr. Rivera",
+    });
+    const selectedStartAtUtcMs = toBogotaUtcMs("2026-02-23", 540);
+    const createAppointment = vi.fn().mockRejectedValue({
+      data: { code: "scheduling.slot_unavailable" },
+    });
+
+    mockMutations({
+      upsertSetup,
+      setLocale: vi.fn().mockResolvedValue({ locale: "en-US" }),
+      createAppointment,
+      confirmAppointment: vi.fn(),
+      cancelAppointment: vi.fn(),
+    });
+    mockQueries({
+      locale: "en-US",
+      snapshot: DEFAULT_SNAPSHOT,
+      getAppointments: () => [],
+      getAvailableSlots: () => [
+        {
+          startAtUtcMs: selectedStartAtUtcMs,
+          endAtUtcMs: selectedStartAtUtcMs + 30 * 60 * 1_000,
+          label: "09:00 GMT-5 (Bogota)",
+        },
+      ],
+    });
+
+    render(<App />);
+
+    await user.type(screen.getByLabelText("Clinic name"), "Clinica Centro");
+    await user.type(screen.getByLabelText("Provider name"), "Dr. Rivera");
+    await user.click(screen.getByRole("button", { name: "Save setup" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Setup saved.")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("Patient name"), "Maria Gomez");
+    await user.type(screen.getByLabelText("Patient phone"), "+573001112233");
+    await user.selectOptions(
+      screen.getByLabelText("Timeslot"),
+      `${selectedStartAtUtcMs}`,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Create appointment" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("The selected timeslot is no longer available."),
+      ).toBeInTheDocument();
     });
   });
 });

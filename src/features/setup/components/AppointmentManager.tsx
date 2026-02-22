@@ -9,16 +9,9 @@ import {
   INPUT_CLASS,
 } from "@/features/setup/constants";
 import type { SetupModel } from "@/features/setup/hooks/useSetupModel";
-import {
-  combineDateAndMinuteToUtcMs,
-  formatDateInput,
-} from "@/features/setup/utils/date";
+import { formatDateInput } from "@/features/setup/utils/date";
 import { readLocalizedErrorMessage } from "@/lib/i18n-errors";
 import { api } from "../../../../convex/_generated/api";
-import {
-  formatMinute,
-  generateScheduleBasedTimeslots,
-} from "../utils/schedule";
 import { AppointmentTable } from "./AppointmentTable";
 
 export function AppointmentManager({ model }: Readonly<{ model: SetupModel }>) {
@@ -51,6 +44,7 @@ export function AppointmentManager({ model }: Readonly<{ model: SetupModel }>) {
   );
 
   const rangeStartUtcMs = useRef(Date.now());
+  const availabilityNowUtcMs = useRef(Math.floor(Date.now() / 60_000) * 60_000);
   const rangeEndUtcMs = useMemo(
     () => rangeStartUtcMs.current + 30 * 24 * 60 * 60 * 1_000,
     [],
@@ -69,24 +63,27 @@ export function AppointmentManager({ model }: Readonly<{ model: SetupModel }>) {
       : "skip",
   );
 
-  const slotMinutes = useMemo(() => {
-    if (!snapshot) {
-      return [];
-    }
-
-    return generateScheduleBasedTimeslots({
-      dateValue,
-      weeklyWindows: snapshot.weeklyWindows,
-      slotStepMin: snapshot.clinic.slotStepMin,
-      appointmentDurationMin: snapshot.clinic.appointmentDurationMin,
-    });
-  }, [dateValue, snapshot]);
+  const availableSlots = useQuery(
+    api.scheduling.listAvailableSlotsForOwner,
+    snapshot
+      ? {
+          clinicSlug: snapshot.clinic.slug,
+          providerName: snapshot.provider.name,
+          dateLocal: dateValue,
+          nowUtcMs: availabilityNowUtcMs.current,
+          limit: 10,
+        }
+      : "skip",
+  );
 
   useEffect(() => {
-    if (slotValue && !slotMinutes.some((slot) => `${slot}` === slotValue)) {
+    if (
+      slotValue &&
+      !availableSlots?.some((slot) => `${slot.startAtUtcMs}` === slotValue)
+    ) {
       setSlotValue("");
     }
-  }, [slotMinutes, slotValue]);
+  }, [availableSlots, slotValue]);
 
   const submitCreate = async () => {
     if (!snapshot) {
@@ -111,16 +108,6 @@ export function AppointmentManager({ model }: Readonly<{ model: SetupModel }>) {
       return;
     }
 
-    const startAtUtcMs = combineDateAndMinuteToUtcMs(
-      dateValue,
-      parsedSlot,
-      snapshot.clinic.timezone,
-    );
-    if (startAtUtcMs === null) {
-      setFormError(t("setup:appointments.messages.missingFields"));
-      return;
-    }
-
     try {
       setIsCreating(true);
       await createAppointmentForOwner({
@@ -128,7 +115,7 @@ export function AppointmentManager({ model }: Readonly<{ model: SetupModel }>) {
         providerName: snapshot.provider.name,
         patientName: patientNameValue,
         patientPhone: patientPhoneValue,
-        startAtUtcMs,
+        startAtUtcMs: parsedSlot,
       });
       setSubmitMessage(t("setup:appointments.messages.created"));
       setPatientName("");
@@ -209,16 +196,19 @@ export function AppointmentManager({ model }: Readonly<{ model: SetupModel }>) {
                 value={slotValue}
               >
                 <option value="">--</option>
-                {slotMinutes.map((slot) => (
-                  <option key={slot} value={`${slot}`}>
-                    {formatMinute(slot)}
+                {(availableSlots ?? []).map((slot) => (
+                  <option
+                    key={slot.startAtUtcMs}
+                    value={`${slot.startAtUtcMs}`}
+                  >
+                    {slot.label}
                   </option>
                 ))}
               </select>
             </label>
           </div>
 
-          {slotMinutes.length === 0 ? (
+          {availableSlots !== undefined && availableSlots.length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">
               {t("setup:appointments.messages.noSlotsForDate")}
             </p>
