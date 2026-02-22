@@ -31,15 +31,15 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 ## Status Board
 | Status | Count |
 |---|---:|
-| TODO | 12 |
+| TODO | 11 |
 | IN_PROGRESS | 0 |
 | BLOCKED | 1 |
-| DONE | 4 |
+| DONE | 5 |
 
 ## Backlog
 | ID | Priority | Title | Status | Dependencies |
 |---|---:|---|---|---|
-| CLN-01 | P3 | Remove vestigial `App.tsx` indirection | TODO | - |
+| CLN-01 | P3 | Remove vestigial `App.tsx` indirection | DONE | - |
 | CLN-02 | P0 | Split `useSetupModel` God hook | TODO | CLN-01 |
 | CLN-03 | P0 | Centralize app auth computation | DONE | - |
 | CLN-04 | P0 | Remove derived-state reset effect in `AppointmentManager` | DONE | - |
@@ -60,7 +60,7 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 ## Task Details
 
 ### CLN-01: Remove vestigial `App.tsx` indirection
-- Status: TODO
+- Status: DONE
 - Problem: Extra re-export layers (`src/App.tsx`, `workspace.tsx`) add no value with TanStack Router tree as app shell.
 - Scope:
   - Render router provider directly from `src/main.tsx`.
@@ -274,3 +274,4 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 - 2026-02-22: Started CLN-07; researching bounded auth wait handling.
 - 2026-02-22: Completed CLN-07; added auth wait timeout with redirect + test coverage.
 - 2026-02-22: Updated appointment availability clock to refresh on interval to prevent stale slot filtering.
+- 2026-02-22: Completed CLN-01 by removing `App.tsx`/workspace re-export indirection and updating route imports/mocks.

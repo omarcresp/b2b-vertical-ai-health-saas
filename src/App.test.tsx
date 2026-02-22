@@ -3,10 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { getFunctionName } from "convex/server";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import SetupWorkspaceApp from "@/features/setup/screens";
 import { api } from "../convex/_generated/api";
 import type { SupportedLocale } from "../shared/locales";
-import App from "./App";
 import i18n from "./i18n";
+
+const App = SetupWorkspaceApp;
 
 type PaginatedStatus =
   | "LoadingFirstPage"

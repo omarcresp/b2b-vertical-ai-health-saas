@@ -31,10 +31,13 @@ vi.mock("convex/react", () => ({
   }),
 }));
 
-vi.mock("@/features/setup/workspace", () => ({
+vi.mock("@/features/setup/components/SetupWorkspaceShell", () => ({
   SetupWorkspaceShell: ({ children }: { children: ReactNode }) => (
     <div data-testid="workspace-shell">{children}</div>
   ),
+}));
+
+vi.mock("@/features/setup/context", () => ({
   SetupWorkspaceProvider: ({
     children,
     initialSnapshotKey,
@@ -65,6 +68,10 @@ vi.mock("@/features/setup/workspace", () => ({
       </div>
     );
   },
+}));
+
+vi.mock("@/features/setup/screens", () => ({
+  default: () => <div>Overview screen</div>,
   SetupWorkspaceFullScreen: () => <div>Overview screen</div>,
   SetupWorkspaceSetupScreen: () => <div>Setup screen</div>,
   SetupWorkspaceSnapshotScreen: () => <div>Snapshot screen</div>,

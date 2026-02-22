@@ -6,11 +6,9 @@ import {
 } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  SetupWorkspaceProvider,
-  SetupWorkspaceShell,
-  type SnapshotKey,
-} from "@/features/setup/workspace";
+import { SetupWorkspaceShell } from "@/features/setup/components/SetupWorkspaceShell";
+import { SetupWorkspaceProvider } from "@/features/setup/context";
+import type { SnapshotKey } from "@/features/setup/types";
 
 export type AppRouteSearch = {
   clinicSlug?: string;
