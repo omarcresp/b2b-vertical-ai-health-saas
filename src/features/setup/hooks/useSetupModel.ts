@@ -1,5 +1,5 @@
 import { useAuth } from "@workos-inc/authkit-react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CITY_OPTIONS } from "@/features/setup/constants";
@@ -22,6 +22,8 @@ export function useSetupModel({
   onSnapshotKeyChange,
 }: Readonly<UseSetupModelArgs> = {}) {
   const { user } = useAuth();
+  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
+  const isAuthenticated = Boolean(user) && isConvexAuthenticated;
   const { t } = useTranslation(["setup", "common"]);
 
   const [draft, setDraft] = useState<SetupDraft>({
@@ -51,10 +53,13 @@ export function useSetupModel({
   }, [onSnapshotKeyChange]);
 
   const upsertSetup = useMutation(api.setup.upsertClinicProviderSetup);
-  const snapshot = useQuery(api.setup.getSetupSnapshot, snapshotKey ?? "skip");
+  const snapshot = useQuery(
+    api.setup.getSetupSnapshot,
+    isAuthenticated && snapshotKey ? snapshotKey : "skip",
+  );
   const latestSetupKey = useQuery(
     api.setup.getMyLatestSetupKey,
-    user ? { intent: "bootstrap" } : "skip",
+    isAuthenticated ? { intent: "bootstrap" } : "skip",
   );
   const bootstrappedSetupKey = latestSetupKey ?? null;
 

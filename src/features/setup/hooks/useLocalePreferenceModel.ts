@@ -1,5 +1,5 @@
 import { useAuth } from "@workos-inc/authkit-react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../../convex/_generated/api";
@@ -10,6 +10,8 @@ import {
 
 export function useLocalePreferenceModel() {
   const { user } = useAuth();
+  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
+  const isAuthenticated = Boolean(user) && isConvexAuthenticated;
   const { t, i18n } = useTranslation(["setup", "common"]);
 
   const [localeError, setLocaleError] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export function useLocalePreferenceModel() {
   const setMyLocale = useMutation(api.userPreferences.setMyLocale);
   const preferences = useQuery(
     api.userPreferences.getMyPreferences,
-    user ? {} : "skip",
+    isAuthenticated ? {} : "skip",
   );
 
   const currentLocale =
@@ -58,7 +60,7 @@ export function useLocalePreferenceModel() {
 
     await i18nRef.current.changeLanguage(locale);
 
-    if (!user) {
+    if (!isAuthenticated) {
       setOptimisticLocale(null);
       return;
     }

@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 function setupMatchMedia(initialDark: boolean) {
   let isDark = initialDark;
 
-  Object.defineProperty(window, "matchMedia", {
+  Object.defineProperty(globalThis, "matchMedia", {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
       get matches() {
@@ -33,7 +33,7 @@ function setupMatchMedia(initialDark: boolean) {
 describe("ModeToggle", () => {
   beforeEach(() => {
     document.documentElement.classList.remove("light", "dark");
-    window.localStorage.clear();
+    globalThis.localStorage.clear();
     setupMatchMedia(false);
   });
 
@@ -52,14 +52,14 @@ describe("ModeToggle", () => {
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("dark");
     });
-    expect(window.localStorage.getItem("vite-ui-theme")).toBe("dark");
+    expect(globalThis.localStorage.getItem("vite-ui-theme")).toBe("dark");
 
     await user.click(screen.getByRole("button", { name: "Toggle theme" }));
     await user.click(screen.getByRole("menuitem", { name: "Light" }));
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("light");
     });
-    expect(window.localStorage.getItem("vite-ui-theme")).toBe("light");
+    expect(globalThis.localStorage.getItem("vite-ui-theme")).toBe("light");
 
     setSystemTheme(true);
     await user.click(screen.getByRole("button", { name: "Toggle theme" }));
@@ -67,6 +67,6 @@ describe("ModeToggle", () => {
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("dark");
     });
-    expect(window.localStorage.getItem("vite-ui-theme")).toBe("system");
+    expect(globalThis.localStorage.getItem("vite-ui-theme")).toBe("system");
   });
 });

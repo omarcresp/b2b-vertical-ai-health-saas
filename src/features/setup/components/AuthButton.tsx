@@ -4,15 +4,15 @@ import { Button } from "@/components/ui/button";
 
 export function AuthButton() {
   const { t } = useTranslation("common");
-  const { user, signIn, signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
-  if (user) {
-    return (
-      <Button onClick={() => signOut()} variant="outline">
-        {t("auth.signOut")}
-      </Button>
-    );
+  if (!user) {
+    return null;
   }
 
-  return <Button onClick={() => void signIn()}>{t("auth.signIn")}</Button>;
+  return (
+    <Button onClick={() => signOut()} variant="outline">
+      {t("auth.signOut")}
+    </Button>
+  );
 }

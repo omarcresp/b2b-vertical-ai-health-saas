@@ -19,6 +19,13 @@ const { mockProviderRender, mockSignIn, mockAuthState } = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("convex/react", () => ({
+  useConvexAuth: () => ({
+    isLoading: mockAuthState.isLoading,
+    isAuthenticated: Boolean(mockAuthState.user),
+  }),
+}));
+
 vi.mock("@/features/setup/workspace", () => ({
   SetupWorkspaceShell: ({ children }: { children: ReactNode }) => (
     <div data-testid="workspace-shell">{children}</div>

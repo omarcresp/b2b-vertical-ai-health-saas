@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useAuth } from "@workos-inc/authkit-react";
+import { useConvexAuth } from "convex/react";
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: ({ context, location }) => {
@@ -19,7 +20,9 @@ export const Route = createFileRoute("/_authed")({
     </main>
   ),
   component: () => {
-    const { isLoading } = useAuth();
+    const { isLoading: isWorkOSLoading, user } = useAuth();
+    const { isLoading: isConvexLoading } = useConvexAuth();
+    const isLoading = isWorkOSLoading || (Boolean(user) && isConvexLoading);
     if (isLoading) {
       return (
         <main className="flex min-h-screen items-center justify-center bg-background">

@@ -18,6 +18,10 @@ const { mockUseMutation, mockUseQuery, mockSignIn, mockSignOut } = vi.hoisted(
 vi.mock("convex/react", () => ({
   Authenticated: ({ children }: { children: ReactNode }) => <>{children}</>,
   Unauthenticated: () => null,
+  useConvexAuth: () => ({
+    isLoading: false,
+    isAuthenticated: true,
+  }),
   useMutation: mockUseMutation,
   useQuery: mockUseQuery,
 }));
@@ -63,105 +67,105 @@ const DEFAULT_SNAPSHOT = {
   },
 };
 
-describe("App setup flow", () => {
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    window.history.replaceState({}, "", "/");
-    await i18n.changeLanguage("en-US");
-  });
+function mockQueries({
+  locale = "en-US",
+  snapshot,
+  latestSetupKey,
+  getAppointments,
+}: {
+  locale?: SupportedLocale | null;
+  snapshot?: unknown;
+  latestSetupKey?: { clinicSlug: string; providerName: string } | null;
+  getAppointments?: () => unknown[];
+}) {
+  mockUseQuery.mockImplementation((_ref, args) => {
+    if (args === "skip") {
+      return undefined;
+    }
 
-  function mockQueries({
-    locale = "en-US",
-    snapshot,
-    latestSetupKey,
-    getAppointments,
-  }: {
-    locale?: SupportedLocale | null;
-    snapshot?: unknown;
-    latestSetupKey?: { clinicSlug: string; providerName: string } | null;
-    getAppointments?: () => unknown[];
-  }) {
-    mockUseQuery.mockImplementation((_ref, args) => {
-      if (args === "skip") {
-        return undefined;
-      }
-
-      if (!args || typeof args !== "object") {
-        if (!locale) {
-          return undefined;
-        }
-        return { locale };
-      }
-
-      if ("rangeStartUtcMs" in args && "rangeEndUtcMs" in args) {
-        return getAppointments ? getAppointments() : [];
-      }
-
-      if ("intent" in args) {
-        return latestSetupKey ?? null;
-      }
-
-      if ("clinicSlug" in args && "providerName" in args) {
-        return snapshot;
-      }
-
+    if (!args || typeof args !== "object") {
       if (!locale) {
         return undefined;
       }
-
       return { locale };
+    }
+
+    if ("rangeStartUtcMs" in args && "rangeEndUtcMs" in args) {
+      return getAppointments ? getAppointments() : [];
+    }
+
+    if ("intent" in args) {
+      return latestSetupKey ?? null;
+    }
+
+    if ("clinicSlug" in args && "providerName" in args) {
+      return snapshot;
+    }
+
+    if (!locale) {
+      return undefined;
+    }
+
+    return { locale };
+  });
+}
+
+function mockMutations({
+  upsertSetup = vi.fn(),
+  setLocale = vi.fn(),
+  createAppointment = vi.fn(),
+  confirmAppointment = vi.fn(),
+  cancelAppointment = vi.fn(),
+}: {
+  upsertSetup?: (...args: unknown[]) => unknown;
+  setLocale?: (...args: unknown[]) => unknown;
+  createAppointment?: (...args: unknown[]) => unknown;
+  confirmAppointment?: (...args: unknown[]) => unknown;
+  cancelAppointment?: (...args: unknown[]) => unknown;
+}) {
+  let appointmentActionCount = 0;
+  const mutationDispatcher = vi
+    .fn()
+    .mockImplementation(async (payload: unknown) => {
+      if (
+        payload &&
+        typeof payload === "object" &&
+        "clinicName" in payload &&
+        "providerName" in payload &&
+        "weeklyWindows" in payload
+      ) {
+        return await upsertSetup(payload);
+      }
+
+      if (payload && typeof payload === "object" && "locale" in payload) {
+        return await setLocale(payload);
+      }
+
+      if (
+        payload &&
+        typeof payload === "object" &&
+        "patientName" in payload &&
+        "patientPhone" in payload &&
+        "startAtUtcMs" in payload
+      ) {
+        return await createAppointment(payload);
+      }
+
+      appointmentActionCount += 1;
+      if (appointmentActionCount === 1) {
+        return await confirmAppointment(payload);
+      }
+      return await cancelAppointment(payload);
     });
-  }
+  mockUseMutation.mockImplementation(() => mutationDispatcher);
+}
 
-  function mockMutations({
-    upsertSetup = vi.fn(),
-    setLocale = vi.fn(),
-    createAppointment = vi.fn(),
-    confirmAppointment = vi.fn(),
-    cancelAppointment = vi.fn(),
-  }: {
-    upsertSetup?: (...args: unknown[]) => unknown;
-    setLocale?: (...args: unknown[]) => unknown;
-    createAppointment?: (...args: unknown[]) => unknown;
-    confirmAppointment?: (...args: unknown[]) => unknown;
-    cancelAppointment?: (...args: unknown[]) => unknown;
-  }) {
-    let appointmentActionCount = 0;
-    const mutationDispatcher = vi
-      .fn()
-      .mockImplementation(async (payload: unknown) => {
-        if (
-          payload &&
-          typeof payload === "object" &&
-          "clinicName" in payload &&
-          "providerName" in payload &&
-          "weeklyWindows" in payload
-        ) {
-          return await upsertSetup(payload);
-        }
-
-        if (payload && typeof payload === "object" && "locale" in payload) {
-          return await setLocale(payload);
-        }
-
-        if (
-          payload &&
-          typeof payload === "object" &&
-          "patientName" in payload &&
-          "patientPhone" in payload &&
-          "startAtUtcMs" in payload
-        ) {
-          return await createAppointment(payload);
-        }
-
-        appointmentActionCount += 1;
-        if (appointmentActionCount === 1) {
-          return await confirmAppointment(payload);
-        }
-        return await cancelAppointment(payload);
-      });
-    mockUseMutation.mockImplementation(() => mutationDispatcher);
-  }
+describe("App setup flow", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    globalThis.history.replaceState({}, "", "/");
+    await i18n.changeLanguage("en-US");
+  });
 
   it("submits setup and renders saved snapshot", async () => {
     const user = userEvent.setup();

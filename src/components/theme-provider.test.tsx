@@ -6,7 +6,7 @@ import { ThemeProvider, useTheme } from "@/components/theme-provider";
 function setupMatchMedia(initialDark: boolean) {
   let isDark = initialDark;
 
-  Object.defineProperty(window, "matchMedia", {
+  Object.defineProperty(globalThis, "matchMedia", {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
       get matches() {
@@ -50,7 +50,7 @@ function ThemeTestHarness() {
 describe("ThemeProvider", () => {
   beforeEach(() => {
     document.documentElement.classList.remove("light", "dark");
-    window.localStorage.clear();
+    globalThis.localStorage.clear();
     setupMatchMedia(false);
   });
 
@@ -69,7 +69,7 @@ describe("ThemeProvider", () => {
   });
 
   it("restores and applies a stored theme value", async () => {
-    window.localStorage.setItem("vite-ui-theme", "dark");
+    globalThis.localStorage.setItem("vite-ui-theme", "dark");
     render(
       <ThemeProvider>
         <div>child</div>
@@ -95,19 +95,19 @@ describe("ThemeProvider", () => {
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("dark");
     });
-    expect(window.localStorage.getItem("vite-ui-theme")).toBe("dark");
+    expect(globalThis.localStorage.getItem("vite-ui-theme")).toBe("dark");
 
     await user.click(screen.getByRole("button", { name: "Set light" }));
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("light");
     });
-    expect(window.localStorage.getItem("vite-ui-theme")).toBe("light");
+    expect(globalThis.localStorage.getItem("vite-ui-theme")).toBe("light");
 
     setSystemTheme(false);
     await user.click(screen.getByRole("button", { name: "Set system" }));
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("light");
     });
-    expect(window.localStorage.getItem("vite-ui-theme")).toBe("system");
+    expect(globalThis.localStorage.getItem("vite-ui-theme")).toBe("system");
   });
 });
