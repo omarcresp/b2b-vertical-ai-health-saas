@@ -1,19 +1,39 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { getFunctionName } from "convex/server";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../convex/_generated/api";
 import type { SupportedLocale } from "../shared/locales";
 import App from "./App";
 import i18n from "./i18n";
 
-const { mockUseMutation, mockUseQuery, mockSignIn, mockSignOut } = vi.hoisted(
-  () => ({
-    mockUseMutation: vi.fn(),
-    mockUseQuery: vi.fn(),
-    mockSignIn: vi.fn(),
-    mockSignOut: vi.fn(),
-  }),
-);
+type PaginatedStatus =
+  | "LoadingFirstPage"
+  | "CanLoadMore"
+  | "LoadingMore"
+  | "Exhausted";
+
+type PaginatedFixture = {
+  isLoading?: boolean;
+  loadMore?: ReturnType<typeof vi.fn>;
+  results: unknown;
+  status: PaginatedStatus;
+};
+
+const {
+  mockUseMutation,
+  mockUsePaginatedQuery,
+  mockUseQuery,
+  mockSignIn,
+  mockSignOut,
+} = vi.hoisted(() => ({
+  mockUseMutation: vi.fn(),
+  mockUsePaginatedQuery: vi.fn(),
+  mockUseQuery: vi.fn(),
+  mockSignIn: vi.fn(),
+  mockSignOut: vi.fn(),
+}));
 
 vi.mock("convex/react", () => ({
   Authenticated: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -23,6 +43,7 @@ vi.mock("convex/react", () => ({
     isAuthenticated: true,
   }),
   useMutation: mockUseMutation,
+  usePaginatedQuery: mockUsePaginatedQuery,
   useQuery: mockUseQuery,
 }));
 
@@ -74,6 +95,70 @@ function toBogotaUtcMs(dateLocal: string, minuteOfDay: number) {
   return Date.UTC(year, month - 1, day, hour + 5, minute, 0, 0);
 }
 
+const QUERY_KEY_GET_MY_PREFERENCES = getFunctionName(
+  api.userPreferences.getMyPreferences,
+);
+const QUERY_KEY_GET_SETUP_SNAPSHOT = getFunctionName(
+  api.setup.getSetupSnapshot,
+);
+const QUERY_KEY_GET_MY_LATEST_SETUP = getFunctionName(
+  api.setup.getMyLatestSetupKey,
+);
+const QUERY_KEY_LIST_AVAILABLE_SLOTS = getFunctionName(
+  api.scheduling.listAvailableSlotsForOwner,
+);
+const QUERY_KEY_LIST_APPOINTMENTS_PAGE = getFunctionName(
+  api.scheduling.listAppointmentsPageForOwner,
+);
+const MUTATION_KEY_UPSERT_SETUP = getFunctionName(
+  api.setup.upsertClinicProviderSetup,
+);
+const MUTATION_KEY_SET_MY_LOCALE = getFunctionName(
+  api.userPreferences.setMyLocale,
+);
+const MUTATION_KEY_CREATE_APPOINTMENT = getFunctionName(
+  api.scheduling.createAppointmentForOwner,
+);
+const MUTATION_KEY_CONFIRM_APPOINTMENT = getFunctionName(
+  api.scheduling.confirmAppointmentForOwner,
+);
+const MUTATION_KEY_CANCEL_APPOINTMENT = getFunctionName(
+  api.scheduling.cancelAppointmentForOwner,
+);
+
+function apiRefKey(ref: unknown) {
+  return getFunctionName(ref as Parameters<typeof getFunctionName>[0]);
+}
+
+function normalizePaginatedFixture(
+  fixture: unknown,
+  loadMore: ReturnType<typeof vi.fn>,
+): PaginatedFixture {
+  if (
+    fixture &&
+    typeof fixture === "object" &&
+    "results" in fixture &&
+    "status" in fixture
+  ) {
+    const typedFixture = fixture as PaginatedFixture;
+    return {
+      ...typedFixture,
+      loadMore: typedFixture.loadMore ?? loadMore,
+      isLoading:
+        typedFixture.isLoading ??
+        (typedFixture.status === "LoadingFirstPage" ||
+          typedFixture.status === "LoadingMore"),
+    };
+  }
+
+  return {
+    results: fixture,
+    status: "Exhausted",
+    loadMore,
+    isLoading: false,
+  };
+}
+
 function mockQueries({
   locale = "en-US",
   snapshot,
@@ -81,45 +166,49 @@ function mockQueries({
   getAppointments,
   getAvailableSlots,
 }: {
-  locale?: SupportedLocale | null;
+  locale?: SupportedLocale | null | (() => SupportedLocale | null);
   snapshot?: unknown;
   latestSetupKey?: { clinicSlug: string; providerName: string } | null;
-  getAppointments?: () => unknown[];
-  getAvailableSlots?: () => unknown[];
+  getAppointments?: () => unknown;
+  getAvailableSlots?: () => unknown;
 }) {
-  mockUseQuery.mockImplementation((_ref, args) => {
+  mockUseQuery.mockImplementation((ref, args) => {
     if (args === "skip") {
       return undefined;
     }
 
-    if (!args || typeof args !== "object") {
-      if (!locale) {
-        return undefined;
-      }
-      return { locale };
+    const key = apiRefKey(ref);
+    if (key === QUERY_KEY_GET_MY_PREFERENCES) {
+      const resolvedLocale = typeof locale === "function" ? locale() : locale;
+      return resolvedLocale ? { locale: resolvedLocale } : undefined;
     }
 
-    if ("dateLocal" in args && "nowUtcMs" in args) {
+    if (key === QUERY_KEY_LIST_AVAILABLE_SLOTS) {
       return getAvailableSlots ? getAvailableSlots() : [];
     }
 
-    if ("rangeStartUtcMs" in args && "rangeEndUtcMs" in args) {
-      return getAppointments ? getAppointments() : [];
-    }
-
-    if ("intent" in args) {
-      return latestSetupKey ?? null;
-    }
-
-    if ("clinicSlug" in args && "providerName" in args) {
+    if (key === QUERY_KEY_GET_SETUP_SNAPSHOT) {
       return snapshot;
     }
 
-    if (!locale) {
-      return undefined;
+    if (key === QUERY_KEY_GET_MY_LATEST_SETUP) {
+      return latestSetupKey ?? null;
     }
 
-    return { locale };
+    throw new Error(`Unexpected query ref in test: ${key}`);
+  });
+
+  const defaultLoadMore = vi.fn();
+  mockUsePaginatedQuery.mockImplementation((ref) => {
+    const key = apiRefKey(ref);
+    if (key !== QUERY_KEY_LIST_APPOINTMENTS_PAGE) {
+      throw new Error(`Unexpected paginated query ref in test: ${key}`);
+    }
+
+    return normalizePaginatedFixture(
+      getAppointments ? getAppointments() : [],
+      defaultLoadMore,
+    );
   });
 }
 
@@ -136,41 +225,25 @@ function mockMutations({
   confirmAppointment?: (...args: unknown[]) => unknown;
   cancelAppointment?: (...args: unknown[]) => unknown;
 }) {
-  let appointmentActionCount = 0;
-  const mutationDispatcher = vi
-    .fn()
-    .mockImplementation(async (payload: unknown) => {
-      if (
-        payload &&
-        typeof payload === "object" &&
-        "clinicName" in payload &&
-        "providerName" in payload &&
-        "weeklyWindows" in payload
-      ) {
-        return await upsertSetup(payload);
-      }
+  const mutationHandlers = {
+    [MUTATION_KEY_CANCEL_APPOINTMENT]: cancelAppointment,
+    [MUTATION_KEY_CONFIRM_APPOINTMENT]: confirmAppointment,
+    [MUTATION_KEY_CREATE_APPOINTMENT]: createAppointment,
+    [MUTATION_KEY_SET_MY_LOCALE]: setLocale,
+    [MUTATION_KEY_UPSERT_SETUP]: upsertSetup,
+  } as const;
 
-      if (payload && typeof payload === "object" && "locale" in payload) {
-        return await setLocale(payload);
-      }
+  mockUseMutation.mockImplementation((ref) => {
+    const key = apiRefKey(ref);
+    const handler =
+      mutationHandlers[key as keyof typeof mutationHandlers] ?? undefined;
 
-      if (
-        payload &&
-        typeof payload === "object" &&
-        "patientName" in payload &&
-        "patientPhone" in payload &&
-        "startAtUtcMs" in payload
-      ) {
-        return await createAppointment(payload);
-      }
+    if (!handler) {
+      throw new Error(`Unexpected mutation ref in test: ${key}`);
+    }
 
-      appointmentActionCount += 1;
-      if (appointmentActionCount === 1) {
-        return await confirmAppointment(payload);
-      }
-      return await cancelAppointment(payload);
-    });
-  mockUseMutation.mockImplementation(() => mutationDispatcher);
+    return vi.fn(async (payload: unknown) => await handler(payload));
+  });
 }
 
 describe("App setup flow", () => {
@@ -286,38 +359,9 @@ describe("App setup flow", () => {
     });
 
     mockMutations({ upsertSetup, setLocale });
-    mockUseQuery.mockImplementation((_ref, args) => {
-      if (args === "skip") {
-        return undefined;
-      }
-
-      if (
-        args &&
-        typeof args === "object" &&
-        "dateLocal" in args &&
-        "nowUtcMs" in args
-      ) {
-        return [];
-      }
-
-      if (
-        args &&
-        typeof args === "object" &&
-        "rangeStartUtcMs" in args &&
-        "rangeEndUtcMs" in args
-      ) {
-        return [];
-      }
-
-      if (args && typeof args === "object" && "clinicSlug" in args) {
-        return undefined;
-      }
-
-      if (args && typeof args === "object" && "intent" in args) {
-        return null;
-      }
-
-      return { locale: persistedLocale };
+    mockQueries({
+      locale: () => persistedLocale,
+      snapshot: undefined,
     });
 
     render(<App />);
@@ -596,6 +640,35 @@ describe("App setup flow", () => {
         screen.getByText("No schedule-based timeslots for the selected date."),
       ).toBeInTheDocument();
     });
+  });
+
+  it("does not crash when appointment queries return non-array payloads", async () => {
+    mockMutations({});
+    mockQueries({
+      locale: "en-US",
+      latestSetupKey: {
+        clinicSlug: "clinica-centro",
+        providerName: "Dr. Rivera",
+      },
+      snapshot: DEFAULT_SNAPSHOT,
+      getAppointments: () => ({ malformed: true }),
+      getAvailableSlots: () => ({ malformed: true }),
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Create appointment" }),
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText("No schedule-based timeslots for the selected date."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No appointments in the next 30 days."),
+    ).toBeInTheDocument();
   });
 
   it("maps slot-unavailable backend error when create fails", async () => {

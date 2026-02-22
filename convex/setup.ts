@@ -306,6 +306,8 @@ export const getSetupSnapshot = query({
   handler: async (ctx, args) => getSetupSnapshotHandler(ctx, args),
 });
 
+const LATEST_SETUP_CLINIC_SCAN_LIMIT = 20;
+
 export async function getMyLatestSetupKeyHandler(ctx: QueryCtx) {
   const identity = await requireIdentity(ctx);
 
@@ -314,20 +316,32 @@ export async function getMyLatestSetupKeyHandler(ctx: QueryCtx) {
     .withIndex("by_createdBySubject", (q) =>
       q.eq("createdBySubject", identity.subject),
     )
-    .collect();
+    .order("desc")
+    .take(LATEST_SETUP_CLINIC_SCAN_LIMIT);
 
-  const sortedOwnedClinics = [...ownedClinics].sort(
-    (left, right) => right._creationTime - left._creationTime,
-  );
+  for (const clinic of ownedClinics) {
+    const activeProviders = await ctx.db
+      .query("providers")
+      .withIndex("by_clinicId_and_isActive", (q) =>
+        q.eq("clinicId", clinic._id).eq("isActive", true),
+      )
+      .order("asc")
+      .take(1);
 
-  for (const clinic of sortedOwnedClinics) {
+    if (activeProviders[0]) {
+      return {
+        clinicSlug: clinic.slug,
+        providerName: activeProviders[0].name,
+      };
+    }
+
     const providers = await ctx.db
       .query("providers")
       .withIndex("by_clinicId", (q) => q.eq("clinicId", clinic._id))
-      .collect();
+      .order("asc")
+      .take(1);
 
-    const activeProvider = providers.find((provider) => provider.isActive);
-    const provider = activeProvider ?? providers[0];
+    const provider = providers[0];
     if (!provider) {
       continue;
     }

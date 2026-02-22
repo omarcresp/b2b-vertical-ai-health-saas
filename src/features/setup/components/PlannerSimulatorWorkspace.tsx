@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export function PlannerSimulatorWorkspace({
   showAppointments?: boolean;
 }>) {
   const { t } = useTranslation(["setup", "common"]);
+  const posthog = usePostHog();
   const [focusedDay, setFocusedDay] = useState<DayValue>(1);
   const [activeTemplate, setActiveTemplate] = useState<
     TemplatePreset["id"] | null
@@ -108,7 +110,13 @@ export function PlannerSimulatorWorkspace({
           </div>
           <Button
             className="rounded-full"
-            onClick={() => model.addWindow(focusedDay)}
+            onClick={() => {
+              model.addWindow(focusedDay);
+              posthog.capture("schedule_window_added", {
+                day_of_week: focusedDay,
+                current_window_count: model.windows.length,
+              });
+            }}
             type="button"
             variant="outline"
           >
@@ -129,6 +137,9 @@ export function PlannerSimulatorWorkspace({
               onPick={(presetId) => {
                 applyTemplate(model.replaceWindows, presetId);
                 setActiveTemplate(presetId);
+                posthog.capture("setup_template_applied", {
+                  template_id: presetId,
+                });
               }}
               preset={preset}
             />

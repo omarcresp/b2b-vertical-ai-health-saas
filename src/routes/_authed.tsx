@@ -1,9 +1,22 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { useAuth } from "@workos-inc/authkit-react";
-import { useConvexAuth } from "convex/react";
+
+async function waitForAbort(signal: AbortSignal) {
+  if (signal.aborted) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    signal.addEventListener("abort", () => resolve(), { once: true });
+  });
+}
 
 export const Route = createFileRoute("/_authed")({
-  beforeLoad: ({ context, location }) => {
+  beforeLoad: async ({ abortController, context, location }) => {
+    if (context.auth.isLoading) {
+      await waitForAbort(abortController.signal);
+      return;
+    }
+
     if (!context.auth.isLoading && !context.auth.isAuthenticated) {
       throw redirect({
         to: "/callback",
@@ -19,18 +32,5 @@ export const Route = createFileRoute("/_authed")({
       <p className="text-sm text-muted-foreground">Loading workspace...</p>
     </main>
   ),
-  component: () => {
-    const { isLoading: isWorkOSLoading, user } = useAuth();
-    const { isLoading: isConvexLoading } = useConvexAuth();
-    const isLoading = isWorkOSLoading || (Boolean(user) && isConvexLoading);
-    if (isLoading) {
-      return (
-        <main className="flex min-h-screen items-center justify-center bg-background">
-          <p className="text-sm text-muted-foreground">Loading workspace...</p>
-        </main>
-      );
-    }
-
-    return <Outlet />;
-  },
+  component: Outlet,
 });

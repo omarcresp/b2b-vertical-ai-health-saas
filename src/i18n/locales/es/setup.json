@@ -128,7 +128,9 @@
       "create": "Crear cita",
       "creating": "Creando...",
       "confirm": "Confirmar",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "loadMore": "Cargar más",
+      "loadingMore": "Cargando..."
     },
     "messages": {
       "created": "Cita creada.",

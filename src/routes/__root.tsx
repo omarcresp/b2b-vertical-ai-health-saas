@@ -1,3 +1,4 @@
+import { PostHogProvider } from "@posthog/react";
 import {
   createRootRouteWithContext,
   Link,
@@ -11,7 +12,21 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootComponent() {
-  return <Outlet />;
+  return (
+    <PostHogProvider
+      apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
+      options={{
+        api_host: "/ingest",
+        ui_host:
+          import.meta.env.VITE_PUBLIC_POSTHOG_HOST || "https://us.posthog.com",
+        defaults: "2026-01-30",
+        capture_exceptions: true,
+        debug: import.meta.env.DEV,
+      }}
+    >
+      <Outlet />
+    </PostHogProvider>
+  );
 }
 
 function RootNotFoundComponent() {

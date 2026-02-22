@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -48,14 +48,18 @@ describe("ModeToggle", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Toggle theme" }));
-    await user.click(screen.getByRole("menuitem", { name: "Dark" }));
+    const darkMenu = await screen.findByRole("menu");
+    await user.click(within(darkMenu).getByRole("menuitem", { name: "Dark" }));
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("dark");
     });
     expect(globalThis.localStorage.getItem("vite-ui-theme")).toBe("dark");
 
     await user.click(screen.getByRole("button", { name: "Toggle theme" }));
-    await user.click(screen.getByRole("menuitem", { name: "Light" }));
+    const lightMenu = await screen.findByRole("menu");
+    await user.click(
+      within(lightMenu).getByRole("menuitem", { name: "Light" }),
+    );
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("light");
     });
@@ -63,7 +67,10 @@ describe("ModeToggle", () => {
 
     setSystemTheme(true);
     await user.click(screen.getByRole("button", { name: "Toggle theme" }));
-    await user.click(screen.getByRole("menuitem", { name: "System" }));
+    const systemMenu = await screen.findByRole("menu");
+    await user.click(
+      within(systemMenu).getByRole("menuitem", { name: "System" }),
+    );
     await waitFor(() => {
       expect(document.documentElement).toHaveClass("dark");
     });

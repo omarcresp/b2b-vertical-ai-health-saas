@@ -7,15 +7,16 @@ type CallbackSearch = {
 };
 
 function normalizeRedirectPath(value: string | undefined): string {
-  if (!value) {
+  const normalizedValue = value?.trim();
+  if (!normalizedValue) {
     return "/app";
   }
 
-  if (!value.startsWith("/")) {
+  if (!normalizedValue.startsWith("/") || normalizedValue.startsWith("//")) {
     return "/app";
   }
 
-  return value;
+  return normalizedValue;
 }
 
 export const Route = createFileRoute("/callback")({

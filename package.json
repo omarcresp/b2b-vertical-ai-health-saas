@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@convex-dev/rate-limiter": "^0.3.2",
+    "@posthog/react": "^1.8.0",
     "@tanstack/react-router": "^1.132.27",
     "@workos-inc/authkit-react": "^0.16.0",
     "class-variance-authority": "^0.7.1",
@@ -48,6 +49,7 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "i18next-resources-to-backend": "^1.2.1",
     "lucide-react": "^0.575.0",
+    "posthog-js": "^1.347.2",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

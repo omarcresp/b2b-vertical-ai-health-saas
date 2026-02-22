@@ -1,3 +1,4 @@
+import { usePostHog } from "@posthog/react";
 import { useAuth } from "@workos-inc/authkit-react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -25,6 +26,7 @@ export function useSetupModel({
   const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const isAuthenticated = Boolean(user) && isConvexAuthenticated;
   const { t } = useTranslation(["setup", "common"]);
+  const posthog = usePostHog();
 
   const [draft, setDraft] = useState<SetupDraft>({
     clinicName: "",
@@ -162,8 +164,25 @@ export function useSetupModel({
       setSnapshotKey(result);
       onSnapshotKeyChangeRef.current?.(result);
       setSubmitMessage(t("setup:submit.saved"));
+      posthog.capture("setup_submitted", {
+        clinic_name: draft.clinicName,
+        city: draft.city,
+        appointment_duration_min: draft.appointmentDurationMin,
+        slot_step_min: draft.slotStepMin,
+        booking_horizon_days: draft.bookingHorizonDays,
+        window_count: windows.length,
+        clinic_slug: result.clinicSlug,
+      });
     } catch (error) {
-      setFormError(readLocalizedErrorMessage(error, t));
+      const errorMessage = readLocalizedErrorMessage(error, t);
+      setFormError(errorMessage);
+      posthog.capture("setup_submit_failed", {
+        clinic_name: draft.clinicName,
+        error_message: errorMessage,
+      });
+      posthog.captureException(
+        error instanceof Error ? error : new Error(String(error)),
+      );
     } finally {
       setIsSubmitting(false);
     }

@@ -37,6 +37,7 @@ export default defineSchema({
     isActive: v.boolean(),
   })
     .index("by_clinicId", ["clinicId"])
+    .index("by_clinicId_and_isActive", ["clinicId", "isActive"])
     .index("by_clinicId_and_name", ["clinicId", "name"]),
 
   providerWeeklySchedules: defineTable({

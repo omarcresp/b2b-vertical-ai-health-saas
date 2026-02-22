@@ -1,7 +1,7 @@
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useAuth } from "@workos-inc/authkit-react";
 import { useConvexAuth } from "convex/react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { routeTree } from "./routeTree.gen";
 
 export type RouterContext = {
@@ -48,11 +48,22 @@ export function AppRouterProvider() {
     [isAuthenticated, isLoading],
   );
 
+  const authVersion = useMemo(
+    () => `${isLoading ? "1" : "0"}:${isAuthenticated ? "1" : "0"}`,
+    [isAuthenticated, isLoading],
+  );
+  const previousAuthVersion = useRef<string | null>(null);
+
   // Re-run beforeLoad guards whenever auth state settles so protected routes
   // redirect unauthenticated users even after the initial render.
   useEffect(() => {
-    router.invalidate();
-  }, [isLoading, isAuthenticated]);
+    if (previousAuthVersion.current === authVersion) {
+      return;
+    }
+
+    previousAuthVersion.current = authVersion;
+    void router.invalidate();
+  }, [authVersion]);
 
   return <RouterProvider context={context} router={router} />;
 }

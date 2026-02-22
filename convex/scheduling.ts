@@ -1,3 +1,4 @@
+import { type PaginationOptions, paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { SCHEDULING_ERROR_CODES } from "../shared/schedulingErrorCodes";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -501,6 +502,19 @@ function sanitizeAvailabilityLimit(limit: number | undefined) {
   return Math.min(requestedLimit, 50);
 }
 
+function validateAppointmentRangeOrThrow(args: {
+  rangeStartUtcMs: number;
+  rangeEndUtcMs: number;
+}) {
+  assertNonNegativeInteger(args.rangeStartUtcMs, "rangeStartUtcMs");
+  assertNonNegativeInteger(args.rangeEndUtcMs, "rangeEndUtcMs");
+  if (args.rangeEndUtcMs <= args.rangeStartUtcMs) {
+    schedulingError(SCHEDULING_ERROR_CODES.INVALID_PAYLOAD, {
+      field: "rangeEndUtcMs",
+    });
+  }
+}
+
 function validateDateLocalOrThrow(dateLocal: string) {
   const normalizedDateLocal = requireNonEmpty(dateLocal, "dateLocal");
   if (!parseDateLocal(normalizedDateLocal)) {
@@ -855,13 +869,7 @@ export async function listAppointmentsForOwnerHandler(
   },
 ) {
   const { provider } = await resolveClinicProviderForOwner(ctx, args);
-  assertNonNegativeInteger(args.rangeStartUtcMs, "rangeStartUtcMs");
-  assertNonNegativeInteger(args.rangeEndUtcMs, "rangeEndUtcMs");
-  if (args.rangeEndUtcMs <= args.rangeStartUtcMs) {
-    schedulingError(SCHEDULING_ERROR_CODES.INVALID_PAYLOAD, {
-      field: "rangeEndUtcMs",
-    });
-  }
+  validateAppointmentRangeOrThrow(args);
 
   const requestedLimit = args.limit ?? 200;
   assertPositiveInteger(requestedLimit, "limit");
@@ -878,6 +886,30 @@ export async function listAppointmentsForOwnerHandler(
     .take(limit);
 
   return appointments;
+}
+
+export async function listAppointmentsPageForOwnerHandler(
+  ctx: QueryCtx,
+  args: {
+    clinicSlug: string;
+    providerName: string;
+    rangeStartUtcMs: number;
+    rangeEndUtcMs: number;
+    paginationOpts: PaginationOptions;
+  },
+) {
+  const { provider } = await resolveClinicProviderForOwner(ctx, args);
+  validateAppointmentRangeOrThrow(args);
+
+  return await ctx.db
+    .query("appointments")
+    .withIndex("by_providerId_and_startAtUtcMs", (q) =>
+      q
+        .eq("providerId", provider._id)
+        .gte("startAtUtcMs", args.rangeStartUtcMs)
+        .lte("startAtUtcMs", args.rangeEndUtcMs),
+    )
+    .paginate(args.paginationOpts);
 }
 
 export async function getAppointmentByIdForOwnerHandler(
@@ -963,6 +995,18 @@ export const listAvailableSlots = internalQuery({
   handler: async (ctx, args) => listAvailableSlotsForInternalHandler(ctx, args),
 });
 
+export const listAppointmentsPageForOwner = query({
+  args: {
+    clinicSlug: v.string(),
+    providerName: v.string(),
+    rangeStartUtcMs: v.number(),
+    rangeEndUtcMs: v.number(),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => listAppointmentsPageForOwnerHandler(ctx, args),
+});
+
+// Deprecated: use listAppointmentsPageForOwner for pagination-safe reads.
 export const listAppointmentsForOwner = query({
   args: {
     clinicSlug: v.string(),

@@ -2,9 +2,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { formatLocalDateTime } from "@/features/setup/utils/date";
 import { appointmentStatusKey } from "@/features/setup/utils/schedule";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 type AppointmentRow = {
-  _id: string;
+  _id: Id<"appointments">;
   patientName: string;
   patientPhone: string;
   startAtUtcMs: number;
@@ -19,11 +20,11 @@ export function AppointmentTable({
 }: Readonly<{
   appointments: AppointmentRow[] | undefined;
   pendingRowAction: {
-    appointmentId: string;
+    appointmentId: Id<"appointments">;
     action: "confirm" | "cancel";
   } | null;
   runRowAction: (
-    appointmentId: string,
+    appointmentId: Id<"appointments">,
     action: "confirm" | "cancel",
   ) => Promise<void>;
 }>) {

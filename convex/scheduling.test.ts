@@ -8,6 +8,7 @@ import {
   createAppointmentForOwnerHandler,
   getAppointmentByIdForOwnerHandler,
   listAppointmentsForOwnerHandler,
+  listAppointmentsPageForOwnerHandler,
   listAvailableSlotsForInternalHandler,
   listAvailableSlotsForOwnerHandler,
 } from "./scheduling";
@@ -253,6 +254,39 @@ function createMockContext(options: MockContextOptions = {}) {
                   readResults().slice(0, limit),
                 ),
               collect: vi.fn().mockImplementation(async () => readResults()),
+              paginate: vi
+                .fn()
+                .mockImplementation(
+                  async ({
+                    cursor,
+                    numItems,
+                  }: {
+                    cursor: null | string;
+                    numItems: number;
+                  }) => {
+                    const results = readResults();
+                    const parsedCursor =
+                      cursor === null || cursor === ""
+                        ? 0
+                        : Number.parseInt(cursor, 10);
+                    const startIndex = Number.isNaN(parsedCursor)
+                      ? 0
+                      : parsedCursor;
+                    const page = results.slice(
+                      startIndex,
+                      startIndex + numItems,
+                    );
+                    const nextIndex = startIndex + page.length;
+                    const isDone = nextIndex >= results.length;
+
+                    return {
+                      page,
+                      isDone,
+                      continueCursor: isDone ? "" : `${nextIndex}`,
+                      splitCursor: null,
+                    };
+                  },
+                ),
             };
           }
 
@@ -373,6 +407,25 @@ describe("scheduling handlers", () => {
     );
 
     await expectSchedulingCode(
+      listAppointmentsPageForOwnerHandler(
+        ctx as unknown as Parameters<
+          typeof listAppointmentsPageForOwnerHandler
+        >[0],
+        {
+          clinicSlug: "clinica-centro",
+          providerName: "Dr. Rivera",
+          rangeStartUtcMs: toBogotaUtcMs(DATE_LOCAL, 0),
+          rangeEndUtcMs: toBogotaUtcMs(DATE_LOCAL, 1_439),
+          paginationOpts: {
+            cursor: null,
+            numItems: 2,
+          },
+        },
+      ),
+      SCHEDULING_ERROR_CODES.AUTH_REQUIRED,
+    );
+
+    await expectSchedulingCode(
       createAppointmentForOwnerHandler(ctx, {
         clinicSlug: "clinica-centro",
         providerName: "Dr. Rivera",
@@ -404,6 +457,25 @@ describe("scheduling handlers", () => {
           providerName: "Dr. Rivera",
           dateLocal: DATE_LOCAL,
           nowUtcMs: toBogotaUtcMs("2026-02-22", 540),
+        },
+      ),
+      SCHEDULING_ERROR_CODES.FORBIDDEN,
+    );
+
+    await expectSchedulingCode(
+      listAppointmentsPageForOwnerHandler(
+        ctx as unknown as Parameters<
+          typeof listAppointmentsPageForOwnerHandler
+        >[0],
+        {
+          clinicSlug: "clinica-centro",
+          providerName: "Dr. Rivera",
+          rangeStartUtcMs: toBogotaUtcMs(DATE_LOCAL, 0),
+          rangeEndUtcMs: toBogotaUtcMs(DATE_LOCAL, 1_439),
+          paginationOpts: {
+            cursor: null,
+            numItems: 2,
+          },
         },
       ),
       SCHEDULING_ERROR_CODES.FORBIDDEN,
@@ -722,6 +794,77 @@ describe("scheduling handlers", () => {
     expect(appointments.map((appointment) => appointment.startAtUtcMs)).toEqual(
       [toBogotaUtcMs(DATE_LOCAL, 540), toBogotaUtcMs(DATE_LOCAL, 570)],
     );
+  });
+
+  it("paginates appointments for owners with range filters and cursor progression", async () => {
+    const mock = createMockContext({
+      appointment: null,
+      extraAppointments: [
+        {
+          id: "appointment_1" as Id<"appointments">,
+          startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 510),
+        },
+        {
+          id: "appointment_2" as Id<"appointments">,
+          startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 540),
+        },
+        {
+          id: "appointment_3" as Id<"appointments">,
+          startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 570),
+        },
+        {
+          id: "appointment_4" as Id<"appointments">,
+          startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 600),
+        },
+        {
+          id: "appointment_5" as Id<"appointments">,
+          startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 630),
+        },
+      ],
+    });
+
+    const firstPage = await listAppointmentsPageForOwnerHandler(
+      mock.ctx as unknown as Parameters<
+        typeof listAppointmentsPageForOwnerHandler
+      >[0],
+      {
+        clinicSlug: "clinica-centro",
+        providerName: "Dr. Rivera",
+        rangeStartUtcMs: toBogotaUtcMs(DATE_LOCAL, 530),
+        rangeEndUtcMs: toBogotaUtcMs(DATE_LOCAL, 620),
+        paginationOpts: {
+          cursor: null,
+          numItems: 2,
+        },
+      },
+    );
+
+    expect(
+      firstPage.page.map((appointment) => appointment.startAtUtcMs),
+    ).toEqual([toBogotaUtcMs(DATE_LOCAL, 540), toBogotaUtcMs(DATE_LOCAL, 570)]);
+    expect(firstPage.isDone).toBe(false);
+    expect(firstPage.continueCursor).toBe("2");
+
+    const secondPage = await listAppointmentsPageForOwnerHandler(
+      mock.ctx as unknown as Parameters<
+        typeof listAppointmentsPageForOwnerHandler
+      >[0],
+      {
+        clinicSlug: "clinica-centro",
+        providerName: "Dr. Rivera",
+        rangeStartUtcMs: toBogotaUtcMs(DATE_LOCAL, 530),
+        rangeEndUtcMs: toBogotaUtcMs(DATE_LOCAL, 620),
+        paginationOpts: {
+          cursor: firstPage.continueCursor,
+          numItems: 2,
+        },
+      },
+    );
+
+    expect(
+      secondPage.page.map((appointment) => appointment.startAtUtcMs),
+    ).toEqual([toBogotaUtcMs(DATE_LOCAL, 600)]);
+    expect(secondPage.isDone).toBe(true);
   });
 
   it("confirm is idempotent and second retry returns changed false", async () => {

@@ -214,29 +214,54 @@ describe("setup handlers", () => {
     expect(result).not.toBeNull();
   });
 
-  it("reads latest setup key using owner index", async () => {
+  it("reads latest setup key with bounded index scans", async () => {
     const withIndexSpy = vi.fn();
+    const clinicsOrderSpy = vi.fn();
+    const clinicsTakeSpy = vi.fn().mockResolvedValue([createClinic("owner_1")]);
+    const clinicsCollectSpy = vi.fn();
+    const activeProviderOrderSpy = vi.fn();
+    const activeProviderTakeSpy = vi.fn().mockResolvedValue([]);
+    const activeProviderCollectSpy = vi.fn();
+    const fallbackProviderOrderSpy = vi.fn();
+    const fallbackProviderTakeSpy = vi.fn().mockResolvedValue([
+      {
+        _id: PROVIDER_ID,
+        _creationTime: 2,
+        clinicId: CLINIC_ID,
+        name: "Dr. Rivera",
+        isActive: false,
+      },
+    ]);
+    const fallbackProviderCollectSpy = vi.fn();
+
     const query = vi.fn().mockImplementation((table: string) => ({
       withIndex: vi.fn().mockImplementation((index: string) => {
         withIndexSpy(table, index);
 
         if (table === "clinics" && index === "by_createdBySubject") {
           return {
-            collect: vi.fn().mockResolvedValue([createClinic("owner_1")]),
+            order: clinicsOrderSpy.mockImplementation(() => ({
+              take: clinicsTakeSpy,
+            })),
+            collect: clinicsCollectSpy,
+          };
+        }
+
+        if (table === "providers" && index === "by_clinicId_and_isActive") {
+          return {
+            order: activeProviderOrderSpy.mockImplementation(() => ({
+              take: activeProviderTakeSpy,
+            })),
+            collect: activeProviderCollectSpy,
           };
         }
 
         if (table === "providers" && index === "by_clinicId") {
           return {
-            collect: vi.fn().mockResolvedValue([
-              {
-                _id: PROVIDER_ID,
-                _creationTime: 2,
-                clinicId: CLINIC_ID,
-                name: "Dr. Rivera",
-                isActive: true,
-              },
-            ]),
+            order: fallbackProviderOrderSpy.mockImplementation(() => ({
+              take: fallbackProviderTakeSpy,
+            })),
+            collect: fallbackProviderCollectSpy,
           };
         }
 
@@ -259,5 +284,19 @@ describe("setup handlers", () => {
       providerName: "Dr. Rivera",
     });
     expect(withIndexSpy).toHaveBeenCalledWith("clinics", "by_createdBySubject");
+    expect(withIndexSpy).toHaveBeenCalledWith(
+      "providers",
+      "by_clinicId_and_isActive",
+    );
+    expect(withIndexSpy).toHaveBeenCalledWith("providers", "by_clinicId");
+    expect(clinicsOrderSpy).toHaveBeenCalledWith("desc");
+    expect(clinicsTakeSpy).toHaveBeenCalledWith(20);
+    expect(activeProviderOrderSpy).toHaveBeenCalledWith("asc");
+    expect(activeProviderTakeSpy).toHaveBeenCalledWith(1);
+    expect(fallbackProviderOrderSpy).toHaveBeenCalledWith("asc");
+    expect(fallbackProviderTakeSpy).toHaveBeenCalledWith(1);
+    expect(clinicsCollectSpy).not.toHaveBeenCalled();
+    expect(activeProviderCollectSpy).not.toHaveBeenCalled();
+    expect(fallbackProviderCollectSpy).not.toHaveBeenCalled();
   });
 });

@@ -128,7 +128,9 @@
       "create": "Create appointment",
       "creating": "Creating...",
       "confirm": "Confirm",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "loadMore": "Load more",
+      "loadingMore": "Loading..."
     },
     "messages": {
       "created": "Appointment created.",

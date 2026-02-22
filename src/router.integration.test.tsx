@@ -151,6 +151,36 @@ describe("router migration", () => {
     });
   });
 
+  it("keeps safe internal callback redirects", async () => {
+    const router = renderAtPath(
+      "/callback?redirect=%2Fapp%2Fsetup%3FclinicSlug%3Dclinica-centro",
+      { isAuthenticated: true, isLoading: false },
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/app/setup");
+      expect(router.state.location.search).toMatchObject({
+        clinicSlug: "clinica-centro",
+      });
+    });
+  });
+
+  it.each([
+    "/callback?redirect=%2F%2Fevil.example",
+    "/callback?redirect=https%3A%2F%2Fevil.example%2Fapp",
+    "/callback?redirect=app%2Fsetup",
+    "/callback?redirect=",
+  ])("normalizes unsafe callback redirect %s to /app", async (path) => {
+    const router = renderAtPath(path, {
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/app/setup");
+    });
+  });
+
   it("updates /app search params after setup and hydrates on refresh", async () => {
     const user = userEvent.setup();
     const router = renderAtPath("/app");
