@@ -9,6 +9,12 @@ import {
   type QueryCtx,
   query,
 } from "./_generated/server";
+import {
+  logDomainEvent,
+  runWithCanonicalLog,
+  safeSubjectHash,
+} from "./observability/logging";
+import type { SafeLogContext } from "./observability/schema";
 import { rateLimiter } from "./rateLimiter";
 
 const MS_PER_MINUTE = 60 * 1_000;
@@ -748,44 +754,89 @@ export async function createAppointmentForOwnerHandler(
     startAtUtcMs: number;
   },
 ) {
-  const identity = await requireIdentity(ctx);
-  await rateLimiter.limit(ctx, "addNumberGlobal", { throws: true });
-  await rateLimiter.limit(ctx, "addNumberPerUser", {
-    key: identity.subject,
-    throws: true,
-  });
+  const safeContext: SafeLogContext = {};
 
-  const { clinic, provider } = await resolveClinicProviderForOwner(ctx, args);
-  const patientName = requireNonEmpty(args.patientName, "patientName");
-  const patientPhone = requireNonEmpty(args.patientPhone, "patientPhone");
-  assertNonNegativeInteger(args.startAtUtcMs, "startAtUtcMs");
+  return await runWithCanonicalLog(
+    {
+      functionName: "scheduling.createAppointmentForOwnerHandler",
+      functionType: "mutation",
+      safeContext,
+    },
+    async () => {
+      const identity = await requireIdentity(ctx);
+      safeContext["user.subject_hash"] = safeSubjectHash(identity.subject);
 
-  const { policy, weeklyWindows } = await getSchedulingInputsOrThrow(
-    ctx,
-    clinic._id,
-    provider._id,
+      try {
+        await rateLimiter.limit(ctx, "addNumberGlobal", { throws: true });
+        safeContext["rate_limit.bucket"] = "addNumberGlobal";
+        safeContext["rate_limit.outcome"] = "allowed";
+      } catch (error) {
+        safeContext["rate_limit.bucket"] = "addNumberGlobal";
+        safeContext["rate_limit.outcome"] = "rejected";
+        throw error;
+      }
+
+      try {
+        await rateLimiter.limit(ctx, "addNumberPerUser", {
+          key: identity.subject,
+          throws: true,
+        });
+        safeContext["rate_limit.bucket"] = "addNumberPerUser";
+        safeContext["rate_limit.outcome"] = "allowed";
+      } catch (error) {
+        safeContext["rate_limit.bucket"] = "addNumberPerUser";
+        safeContext["rate_limit.outcome"] = "rejected";
+        throw error;
+      }
+
+      const { clinic, provider } = await resolveClinicProviderForOwner(
+        ctx,
+        args,
+      );
+      safeContext["tenant.clinic_slug"] = clinic.slug;
+
+      const patientName = requireNonEmpty(args.patientName, "patientName");
+      const patientPhone = requireNonEmpty(args.patientPhone, "patientPhone");
+      assertNonNegativeInteger(args.startAtUtcMs, "startAtUtcMs");
+
+      const { policy, weeklyWindows } = await getSchedulingInputsOrThrow(
+        ctx,
+        clinic._id,
+        provider._id,
+      );
+
+      await assertCreateSlotIsBookable(ctx, {
+        clinic,
+        provider,
+        startAtUtcMs: args.startAtUtcMs,
+        policy,
+        weeklyWindows,
+      });
+
+      const endAtUtcMs =
+        args.startAtUtcMs + policy.appointmentDurationMin * MS_PER_MINUTE;
+
+      const appointmentId = await ctx.db.insert("appointments", {
+        clinicId: clinic._id,
+        providerId: provider._id,
+        patientName,
+        patientPhone,
+        startAtUtcMs: args.startAtUtcMs,
+        endAtUtcMs,
+        status: "scheduled",
+      });
+
+      await logDomainEvent("appointment.created", {
+        "tenant.clinic_slug": clinic.slug,
+        "provider.id": provider._id,
+        "appointment.start_at_utc_ms": args.startAtUtcMs,
+        "appointment.duration.ms":
+          policy.appointmentDurationMin * MS_PER_MINUTE,
+      });
+
+      return appointmentId;
+    },
   );
-
-  await assertCreateSlotIsBookable(ctx, {
-    clinic,
-    provider,
-    startAtUtcMs: args.startAtUtcMs,
-    policy,
-    weeklyWindows,
-  });
-
-  const endAtUtcMs =
-    args.startAtUtcMs + policy.appointmentDurationMin * MS_PER_MINUTE;
-
-  return await ctx.db.insert("appointments", {
-    clinicId: clinic._id,
-    providerId: provider._id,
-    patientName,
-    patientPhone,
-    startAtUtcMs: args.startAtUtcMs,
-    endAtUtcMs,
-    status: "scheduled",
-  });
 }
 
 export async function listAvailableSlotsForOwnerHandler(

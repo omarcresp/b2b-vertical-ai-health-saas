@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as observability_logging from "../observability/logging.js";
+import type * as observability_redaction from "../observability/redaction.js";
 import type * as rateLimiter from "../rateLimiter.js";
 import type * as scheduling from "../scheduling.js";
 import type * as setup from "../setup.js";
@@ -21,6 +23,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "observability/logging": typeof observability_logging;
+  "observability/redaction": typeof observability_redaction;
   rateLimiter: typeof rateLimiter;
   scheduling: typeof scheduling;
   setup: typeof setup;

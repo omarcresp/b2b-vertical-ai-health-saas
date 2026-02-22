@@ -40,7 +40,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html", "lcov"],
       reportsDirectory: "./coverage",
-      include: ["src/**/*.{ts,tsx}"],
+      include: ["src/**/*.{ts,tsx}", "convex/**/*.ts"],
       exclude: [
         // Test infrastructure
         "src/**/*.test.{ts,tsx}",
@@ -65,6 +65,13 @@ export default defineConfig({
         "src/routes/_authed/app.appointments.tsx",
         "src/routes/_authed/app.setup.tsx",
         "src/routes/_authed/app.snapshot.tsx",
+        // Convex test files
+        "convex/**/*.test.ts",
+        // Convex auto-generated files — never edit manually
+        "convex/_generated/**",
+        // Convex config/bootstrap — not business logic
+        "convex/auth.config.ts",
+        "convex/convex.config.ts",
       ],
     },
   },

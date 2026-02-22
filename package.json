@@ -40,6 +40,8 @@
   "dependencies": {
     "@convex-dev/rate-limiter": "^0.3.2",
     "@convex-dev/react-query": "^0.1.0",
+    "@logtape/logtape": "^2.0.2",
+    "@logtape/redaction": "^2.0.2",
     "@posthog/react": "^1.8.0",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-router": "^1.132.27",
