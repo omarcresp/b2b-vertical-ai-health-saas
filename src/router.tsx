@@ -1,8 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
-import { routeTree } from "./routeTree.gen";
 import { useAppAuth } from "@/hooks/useAppAuth";
+import { routeTree } from "./routeTree.gen";
 
 export type RouterContext = {
   auth: {

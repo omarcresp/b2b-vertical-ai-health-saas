@@ -496,10 +496,9 @@ export async function loadScheduledConflicts(
   );
 }
 
-function sanitizeAvailabilityLimit(limit: number | undefined) {
-  const requestedLimit = limit ?? 10;
-  assertPositiveInteger(requestedLimit, "limit");
-  return Math.min(requestedLimit, 50);
+function sanitizeAvailabilityLimit(limit: number = 10) {
+  assertPositiveInteger(limit, "limit");
+  return Math.min(limit, 50);
 }
 
 function validateAppointmentRangeOrThrow(args: {

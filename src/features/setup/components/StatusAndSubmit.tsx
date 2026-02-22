@@ -22,7 +22,7 @@ export function StatusAndSubmit({ model }: Readonly<{ model: SetupModel }>) {
       </div>
       <Button
         className="mt-4 w-full rounded-xl sm:w-auto"
-        onClick={() => void model.submitSetup()}
+        onClick={() => model.submitSetup()}
         type="button"
       >
         {model.isSubmitting

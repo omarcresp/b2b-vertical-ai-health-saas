@@ -645,7 +645,7 @@ describe("App setup flow", () => {
       ).not.toBeNull();
     });
     await user.selectOptions(timeslotSelect, `${selectedStartAtUtcMs}`);
-    expect((screen.getByLabelText("Date") as HTMLInputElement).value).toBe(
+    expect(screen.getByLabelText<HTMLInputElement>("Date").value).toBe(
       "2026-02-23",
     );
     expect((timeslotSelect as HTMLSelectElement).value).toBe(

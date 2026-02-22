@@ -1,10 +1,9 @@
-Removed the effect-driven slot reset in AppointmentManager by deriving the effective slot during render and using it for both the select value and submit parsing, aligning with React guidance to avoid syncing derived state with effects and extra render passes. ([react.dev](https://react.dev/learn/you-might-not-need-an-effect?utm_source=openai))  
-- `src/features/setup/components/AppointmentManager.tsx` now computes `effectiveSlotValue` instead of using a reset effect, keeping the UI and submit path in sync without post-render updates.  
-- `tasks/cleanup.md` marks CLN-04 as DONE and logs today’s progress.
+Removed the App/workspace re-export indirection by wiring routes to the setup screens/context directly and updating tests/mocks to match.
 
-Validation: `bunx biome check src/features/setup/components/AppointmentManager.tsx --error-on-warnings`  
-Committed: `Remove AppointmentManager slot reset effect`
+- Updated route imports to use `src/features/setup/screens.tsx`, `src/features/setup/context.tsx`, and `src/features/setup/components/SetupWorkspaceShell.tsx` directly.
+- Dropped `src/App.tsx` and `src/features/setup/workspace.tsx`; `src/App.test.tsx` now renders `SetupWorkspaceApp` from `src/features/setup/screens.tsx`.
+- Adjusted integration test mocks for the new module paths and marked CLN-01 DONE in `tasks/cleanup.md`.
 
-Next steps (pick one):
-1) CLN-03 centralize app auth computation  
-2) CLN-07 add timeout/error path to auth wait guard
+Tests: `bun run test src/App.test.tsx src/router.integration.test.tsx`
+
+Next step if you want me to continue: start CLN-02 (split `useSetupModel`, now unblocked).

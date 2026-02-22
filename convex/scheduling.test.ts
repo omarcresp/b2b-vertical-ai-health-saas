@@ -20,6 +20,22 @@ const APPOINTMENT_ID = "appointment_1" as Id<"appointments">;
 const NEW_APPOINTMENT_ID = "appointment_new" as Id<"appointments">;
 const DATE_LOCAL = "2026-02-23";
 
+function queryAppointmentRange(
+  appointments: Map<Id<"appointments">, Doc<"appointments">>,
+  providerId: Id<"providers"> | null,
+  rangeStart: number | null,
+  rangeEnd: number | null,
+) {
+  return Array.from(appointments.values())
+    .sort((a, b) => a.startAtUtcMs - b.startAtUtcMs)
+    .filter((appt) => {
+      if (providerId && appt.providerId !== providerId) return false;
+      if (rangeStart !== null && appt.startAtUtcMs < rangeStart) return false;
+      if (rangeEnd !== null && appt.startAtUtcMs > rangeEnd) return false;
+      return true;
+    });
+}
+
 function toBogotaUtcMs(dateLocal: string, minuteOfDay: number) {
   const [year, month, day] = dateLocal.split("-").map(Number);
   const hour = Math.floor(minuteOfDay / 60);
@@ -225,27 +241,13 @@ function createMockContext(options: MockContextOptions = {}) {
 
             applyIndex?.(queryBuilder);
 
-            const readResults = () => {
-              const sorted = Array.from(appointments.values()).sort(
-                (left, right) => left.startAtUtcMs - right.startAtUtcMs,
+            const readResults = () =>
+              queryAppointmentRange(
+                appointments,
+                providerId,
+                rangeStart,
+                rangeEnd,
               );
-
-              return sorted.filter((appointment) => {
-                if (providerId && appointment.providerId !== providerId) {
-                  return false;
-                }
-                if (
-                  rangeStart !== null &&
-                  appointment.startAtUtcMs < rangeStart
-                ) {
-                  return false;
-                }
-                if (rangeEnd !== null && appointment.startAtUtcMs > rangeEnd) {
-                  return false;
-                }
-                return true;
-              });
-            };
 
             return {
               take: vi

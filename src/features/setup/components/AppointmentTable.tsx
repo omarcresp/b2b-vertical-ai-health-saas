@@ -95,9 +95,7 @@ export function AppointmentTable({
                   <div className="flex gap-2">
                     <Button
                       disabled={isCanceled || isConfirmed || isPending}
-                      onClick={() =>
-                        void runRowAction(appointment._id, "confirm")
-                      }
+                      onClick={() => runRowAction(appointment._id, "confirm")}
                       size="sm"
                       type="button"
                       variant="outline"
@@ -106,9 +104,7 @@ export function AppointmentTable({
                     </Button>
                     <Button
                       disabled={isCanceled || isPending}
-                      onClick={() =>
-                        void runRowAction(appointment._id, "cancel")
-                      }
+                      onClick={() => runRowAction(appointment._id, "cancel")}
                       size="sm"
                       type="button"
                       variant="outline"
