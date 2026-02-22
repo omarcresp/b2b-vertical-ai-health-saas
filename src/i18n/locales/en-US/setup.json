@@ -172,6 +172,7 @@
     },
     "server": {
       "setupAuthRequired": "Authentication is required.",
+      "setupForbidden": "You do not have access to this clinic.",
       "setupInvalidPayload": "Invalid setup payload.",
       "setupClinicSlugEmpty": "Clinic slug cannot be empty after normalization.",
       "setupWeeklyWindowRequired": "At least one weekly schedule window is required.",

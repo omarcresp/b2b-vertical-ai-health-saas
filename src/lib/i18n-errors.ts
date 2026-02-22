@@ -1,4 +1,4 @@
-import type { Namespace, TFunction } from "i18next";
+import type { TFunction } from "i18next";
 import {
   SCHEDULING_ERROR_CODES,
   type SchedulingErrorCode,
@@ -8,8 +8,12 @@ import {
   type SetupErrorCode,
 } from "../../shared/setupErrorCodes";
 
-const SETUP_ERROR_TRANSLATION_KEYS: Record<SetupErrorCode, string> = {
+type AppTFunction = TFunction<["setup", "common"]>;
+type TranslationKey = Parameters<AppTFunction>[0];
+
+const SETUP_ERROR_TRANSLATION_KEYS = {
   [SETUP_ERROR_CODES.AUTH_REQUIRED]: "setup:errors.server.setupAuthRequired",
+  [SETUP_ERROR_CODES.FORBIDDEN]: "setup:errors.server.setupForbidden",
   [SETUP_ERROR_CODES.INVALID_PAYLOAD]:
     "setup:errors.server.setupInvalidPayload",
   [SETUP_ERROR_CODES.CLINIC_SLUG_EMPTY]:
@@ -21,9 +25,9 @@ const SETUP_ERROR_TRANSLATION_KEYS: Record<SetupErrorCode, string> = {
   [SETUP_ERROR_CODES.WEEKLY_WINDOW_INVALID]:
     "setup:errors.server.setupWeeklyWindowInvalid",
   [SETUP_ERROR_CODES.NUMBER_INVALID]: "setup:errors.server.setupNumberInvalid",
-};
+} as const satisfies Record<SetupErrorCode, TranslationKey>;
 
-const SCHEDULING_ERROR_TRANSLATION_KEYS: Record<SchedulingErrorCode, string> = {
+const SCHEDULING_ERROR_TRANSLATION_KEYS = {
   [SCHEDULING_ERROR_CODES.AUTH_REQUIRED]:
     "setup:errors.server.schedulingAuthRequired",
   [SCHEDULING_ERROR_CODES.FORBIDDEN]: "setup:errors.server.schedulingForbidden",
@@ -32,7 +36,7 @@ const SCHEDULING_ERROR_TRANSLATION_KEYS: Record<SchedulingErrorCode, string> = {
     "setup:errors.server.schedulingInvalidPayload",
   [SCHEDULING_ERROR_CODES.INVALID_TRANSITION]:
     "setup:errors.server.schedulingInvalidTransition",
-};
+} as const satisfies Record<SchedulingErrorCode, TranslationKey>;
 
 function extractErrorCode(error: unknown): string | null {
   if (typeof error !== "object" || error === null || !("data" in error)) {
@@ -54,19 +58,15 @@ function extractErrorCode(error: unknown): string | null {
 
 export function readLocalizedErrorMessage(
   error: unknown,
-  t: TFunction<Namespace>,
+  t: AppTFunction,
 ): string {
-  const translate = (key: string) => t(key as never) as unknown as string;
-
   const code = extractErrorCode(error);
   if (code && code in SETUP_ERROR_TRANSLATION_KEYS) {
-    return translate(SETUP_ERROR_TRANSLATION_KEYS[code as SetupErrorCode]);
+    return t(SETUP_ERROR_TRANSLATION_KEYS[code as SetupErrorCode]);
   }
 
   if (code && code in SCHEDULING_ERROR_TRANSLATION_KEYS) {
-    return translate(
-      SCHEDULING_ERROR_TRANSLATION_KEYS[code as SchedulingErrorCode],
-    );
+    return t(SCHEDULING_ERROR_TRANSLATION_KEYS[code as SchedulingErrorCode]);
   }
 
   if (error instanceof Error && error.message) {
@@ -80,5 +80,5 @@ export function readLocalizedErrorMessage(
     }
   }
 
-  return translate("setup:errors.unknown");
+  return t("setup:errors.unknown");
 }

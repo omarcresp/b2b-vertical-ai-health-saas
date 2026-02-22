@@ -1,12 +1,12 @@
-import { Component, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 
 // NOTE: Once you get WorkOS working you can simplify this error boundary
 // or remove it entirely.
 export class ErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: ReactNode | null }
+  Readonly<{ children: ReactNode }>,
+  Readonly<{ error: ReactNode | null }>
 > {
-  constructor(props: { children: ReactNode }) {
+  constructor(props: Readonly<{ children: ReactNode }>) {
     super(props);
     this.state = { error: null };
   }
@@ -64,7 +64,9 @@ export class ErrorBoundary extends Component<
     return { error: <p>{errorText}</p> };
   }
 
-  componentDidCatch() {}
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[ErrorBoundary]", error, info);
+  }
 
   render() {
     if (this.state.error !== null) {

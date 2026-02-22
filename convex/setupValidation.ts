@@ -27,6 +27,8 @@ export class SetupValidationError extends Error {
   }
 }
 
+const MAX_CLINIC_SLUG_INPUT_LENGTH = 120;
+
 function assertInteger(value: number, fieldName: string, code: SetupErrorCode) {
   if (!Number.isInteger(value)) {
     throw new SetupValidationError(code, `${fieldName} must be an integer.`);
@@ -77,14 +79,20 @@ function assertNonNegative(
 }
 
 export function normalizeClinicSlug(value: string) {
+  if (value.length > MAX_CLINIC_SLUG_INPUT_LENGTH) {
+    throw new SetupValidationError(
+      SETUP_ERROR_CODES.INVALID_PAYLOAD,
+      `Clinic slug source is too long (max ${MAX_CLINIC_SLUG_INPUT_LENGTH} characters).`,
+    );
+  }
+
   const normalized = value
     .trim()
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
+    .replace(/[\u0300-\u036f]/gu, "")
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/(^-+)|(-+$)/g, "");
 
   if (!normalized) {
     throw new SetupValidationError(
@@ -196,7 +204,7 @@ export function validateAndSortWeeklyWindows(windows: WeeklyWindowInput[]) {
   }
 
   for (const [dayOfWeek, dayWindows] of byDay.entries()) {
-    const sortedDay = dayWindows.sort(
+    const sortedDay = [...dayWindows].sort(
       (left, right) => left.startMinute - right.startMinute,
     );
 
@@ -210,7 +218,7 @@ export function validateAndSortWeeklyWindows(windows: WeeklyWindowInput[]) {
     }
   }
 
-  return normalized.sort((left, right) => {
+  return [...normalized].sort((left, right) => {
     if (left.dayOfWeek !== right.dayOfWeek) {
       return left.dayOfWeek - right.dayOfWeek;
     }

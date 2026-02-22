@@ -19,7 +19,9 @@ export default defineSchema({
       v.literal("America/Bogota"),
     ),
     createdBySubject: v.string(),
-  }).index("by_slug", ["slug"]),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_createdBySubject", ["createdBySubject"]),
 
   clinicBookingPolicies: defineTable({
     clinicId: v.id("clinics"),

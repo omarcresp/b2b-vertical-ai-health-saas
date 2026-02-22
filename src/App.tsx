@@ -1,2 +1,9 @@
-export { parseTimeToMinute } from "@/features/setup/utils/time";
-export { default, SetupWorkspaceShell } from "@/features/setup/workspace";
+import SetupWorkspaceApp, {
+  SetupWorkspaceShell,
+} from "@/features/setup/workspace";
+
+export default function App() {
+  return <SetupWorkspaceApp />;
+}
+
+export { SetupWorkspaceShell };

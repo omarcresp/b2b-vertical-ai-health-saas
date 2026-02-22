@@ -172,6 +172,7 @@
     },
     "server": {
       "setupAuthRequired": "Se requiere autenticación.",
+      "setupForbidden": "No tienes acceso a esta clínica.",
       "setupInvalidPayload": "Carga de configuración inválida.",
       "setupClinicSlugEmpty": "El slug de clínica quedó vacío tras normalizarse.",
       "setupWeeklyWindowRequired": "Se requiere al menos una ventana semanal.",

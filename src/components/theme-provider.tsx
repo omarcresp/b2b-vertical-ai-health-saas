@@ -1,13 +1,20 @@
 import type { ReactNode } from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 export type Theme = "light" | "dark" | "system";
 
-type ThemeProviderProps = {
+type ThemeProviderProps = Readonly<{
   children: ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
-};
+}>;
 
 type ThemeProviderState = {
   theme: Theme;
@@ -19,13 +26,13 @@ const ThemeProviderContext = createContext<ThemeProviderState | undefined>(
 );
 
 function getSystemTheme() {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
+  return globalThis.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
 }
 
 function applyThemeClass(theme: Theme) {
-  const root = window.document.documentElement;
+  const root = globalThis.document.documentElement;
   root.classList.remove("light", "dark");
   root.classList.add(theme === "system" ? getSystemTheme() : theme);
 }
@@ -36,7 +43,7 @@ export function ThemeProvider({
   storageKey = "vite-ui-theme",
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const storedTheme = window.localStorage.getItem(storageKey);
+    const storedTheme = globalThis.localStorage.getItem(storageKey);
     return storedTheme === "light" ||
       storedTheme === "dark" ||
       storedTheme === "system"
@@ -44,17 +51,22 @@ export function ThemeProvider({
       : defaultTheme;
   });
 
-  const setTheme = (value: Theme) => {
-    window.localStorage.setItem(storageKey, value);
-    setThemeState(value);
-  };
+  const setTheme = useCallback(
+    (value: Theme) => {
+      globalThis.localStorage.setItem(storageKey, value);
+      setThemeState(value);
+    },
+    [storageKey],
+  );
+
+  const contextValue = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
 
   useEffect(() => {
     applyThemeClass(theme);
   }, [theme]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const mediaQuery = globalThis.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
       if (theme === "system") {
         applyThemeClass("system");
@@ -68,7 +80,7 @@ export function ThemeProvider({
   }, [theme]);
 
   return (
-    <ThemeProviderContext.Provider value={{ theme, setTheme }}>
+    <ThemeProviderContext.Provider value={contextValue}>
       {children}
     </ThemeProviderContext.Provider>
   );

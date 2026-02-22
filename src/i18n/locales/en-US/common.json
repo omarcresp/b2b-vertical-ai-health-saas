@@ -15,5 +15,10 @@
   },
   "actions": {
     "remove": "Remove"
+  },
+  "nav": {
+    "setup": "Setup",
+    "snapshot": "Snapshot",
+    "appointments": "Appointments"
   }
 }

@@ -5,6 +5,7 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   SetupWorkspaceProvider,
   SetupWorkspaceShell,
@@ -39,10 +40,17 @@ export function validateAppRouteSearch(
 
 export const Route = createFileRoute("/_authed/app")({
   validateSearch: validateAppRouteSearch,
+  pendingMs: 0,
+  pendingComponent: () => (
+    <section className="rounded-2xl border border-border/80 bg-card/95 p-4 text-sm text-muted-foreground">
+      Loading app...
+    </section>
+  ),
   component: AppLayoutRouteComponent,
 });
 
 function AppLayoutRouteComponent() {
+  const { t } = useTranslation(["setup", "common"]);
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
 
@@ -79,9 +87,11 @@ function AppLayoutRouteComponent() {
       >
         <section className="rounded-2xl border border-border/80 bg-card/95 p-3 shadow-sm backdrop-blur">
           <div className="flex flex-wrap gap-2">
-            <RouteTab to="/app/setup">Setup</RouteTab>
-            <RouteTab to="/app/snapshot">Snapshot</RouteTab>
-            <RouteTab to="/app/appointments">Appointments</RouteTab>
+            <RouteTab to="/app/setup">{t("common:nav.setup")}</RouteTab>
+            <RouteTab to="/app/snapshot">{t("common:nav.snapshot")}</RouteTab>
+            <RouteTab to="/app/appointments">
+              {t("common:nav.appointments")}
+            </RouteTab>
           </div>
         </section>
         <Outlet />
@@ -90,7 +100,13 @@ function AppLayoutRouteComponent() {
   );
 }
 
-function RouteTab({ to, children }: { to: string; children: string }) {
+function RouteTab({
+  to,
+  children,
+}: Readonly<{
+  to: "/app/setup" | "/app/snapshot" | "/app/appointments";
+  children: string;
+}>) {
   return (
     <Link
       activeProps={{

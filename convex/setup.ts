@@ -1,6 +1,13 @@
 import { ConvexError, v } from "convex/values";
 import { SETUP_ERROR_CODES } from "../shared/setupErrorCodes";
-import { mutation, query } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import {
+  type MutationCtx,
+  mutation,
+  type QueryCtx,
+  query,
+} from "./_generated/server";
+import { rateLimiter } from "./rateLimiter";
 import {
   normalizeClinicSlug,
   SetupValidationError,
@@ -32,6 +39,167 @@ function requireNonEmptyString(value: string, fieldName: string) {
   return trimmed;
 }
 
+async function requireIdentity(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new ConvexError({ code: SETUP_ERROR_CODES.AUTH_REQUIRED });
+  }
+
+  return identity;
+}
+
+function assertClinicOwner(clinic: Doc<"clinics">, subject: string) {
+  if (clinic.createdBySubject !== subject) {
+    throw new ConvexError({ code: SETUP_ERROR_CODES.FORBIDDEN });
+  }
+}
+
+type UpsertClinicProviderSetupArgs = {
+  clinicName: string;
+  clinicSlug?: string;
+  city: "cdmx" | "bogota";
+  providerName: string;
+  appointmentDurationMin: number;
+  slotStepMin: number;
+  leadTimeMin: number;
+  bookingHorizonDays: number;
+  weeklyWindows: Array<{
+    dayOfWeek: number;
+    startMinute: number;
+    endMinute: number;
+  }>;
+};
+
+export async function upsertClinicProviderSetupHandler(
+  ctx: MutationCtx,
+  args: UpsertClinicProviderSetupArgs,
+) {
+  const identity = await requireIdentity(ctx);
+
+  await rateLimiter.limit(ctx, "addNumberGlobal", { throws: true });
+  await rateLimiter.limit(ctx, "addNumberPerUser", {
+    key: identity.subject,
+    throws: true,
+  });
+
+  const clinicName = requireNonEmptyString(args.clinicName, "clinicName");
+  const providerName = requireNonEmptyString(args.providerName, "providerName");
+
+  let normalizedWindows: ReturnType<typeof validateAndSortWeeklyWindows>;
+
+  try {
+    validateSetupNumbers({
+      appointmentDurationMin: args.appointmentDurationMin,
+      slotStepMin: args.slotStepMin,
+      bookingHorizonDays: args.bookingHorizonDays,
+      leadTimeMin: args.leadTimeMin,
+    });
+    normalizedWindows = validateAndSortWeeklyWindows(args.weeklyWindows);
+  } catch (error) {
+    throw asConvexError(error);
+  }
+
+  let clinicSlug: string;
+
+  try {
+    clinicSlug = normalizeClinicSlug(args.clinicSlug ?? clinicName);
+  } catch (error) {
+    throw asConvexError(error);
+  }
+
+  const timezone = timezoneForCity(args.city);
+
+  const clinic = await ctx.db
+    .query("clinics")
+    .withIndex("by_slug", (q) => q.eq("slug", clinicSlug))
+    .unique();
+
+  const clinicId = clinic
+    ? clinic._id
+    : await ctx.db.insert("clinics", {
+        name: clinicName,
+        slug: clinicSlug,
+        city: args.city,
+        timezone,
+        createdBySubject: identity.subject,
+      });
+
+  if (clinic) {
+    assertClinicOwner(clinic, identity.subject);
+
+    await ctx.db.patch(clinicId, {
+      name: clinicName,
+      city: args.city,
+      timezone,
+    });
+  }
+
+  const existingPolicy = await ctx.db
+    .query("clinicBookingPolicies")
+    .withIndex("by_clinicId", (q) => q.eq("clinicId", clinicId))
+    .unique();
+
+  if (existingPolicy) {
+    await ctx.db.patch(existingPolicy._id, {
+      appointmentDurationMin: args.appointmentDurationMin,
+      slotStepMin: args.slotStepMin,
+      leadTimeMin: args.leadTimeMin,
+      bookingHorizonDays: args.bookingHorizonDays,
+    });
+  } else {
+    await ctx.db.insert("clinicBookingPolicies", {
+      clinicId,
+      appointmentDurationMin: args.appointmentDurationMin,
+      slotStepMin: args.slotStepMin,
+      leadTimeMin: args.leadTimeMin,
+      bookingHorizonDays: args.bookingHorizonDays,
+    });
+  }
+
+  const provider = await ctx.db
+    .query("providers")
+    .withIndex("by_clinicId_and_name", (q) =>
+      q.eq("clinicId", clinicId).eq("name", providerName),
+    )
+    .unique();
+
+  const providerId = provider
+    ? provider._id
+    : await ctx.db.insert("providers", {
+        clinicId,
+        name: providerName,
+        isActive: true,
+      });
+
+  if (provider && !provider.isActive) {
+    await ctx.db.patch(provider._id, { isActive: true });
+  }
+
+  const existingWindows = await ctx.db
+    .query("providerWeeklySchedules")
+    .withIndex("by_providerId_and_dayOfWeek", (q) =>
+      q.eq("providerId", providerId),
+    )
+    .collect();
+
+  await Promise.all(existingWindows.map((window) => ctx.db.delete(window._id)));
+
+  for (const window of normalizedWindows) {
+    await ctx.db.insert("providerWeeklySchedules", {
+      clinicId,
+      providerId,
+      dayOfWeek: window.dayOfWeek,
+      startMinute: window.startMinute,
+      endMinute: window.endMinute,
+    });
+  }
+
+  return {
+    clinicSlug,
+    providerName,
+  };
+}
+
 export const upsertClinicProviderSetup = mutation({
   args: {
     clinicName: v.string(),
@@ -50,251 +218,132 @@ export const upsertClinicProviderSetup = mutation({
       }),
     ),
   },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError({ code: SETUP_ERROR_CODES.AUTH_REQUIRED });
-    }
-
-    const clinicName = requireNonEmptyString(args.clinicName, "clinicName");
-    const providerName = requireNonEmptyString(
-      args.providerName,
-      "providerName",
-    );
-
-    let normalizedWindows: ReturnType<typeof validateAndSortWeeklyWindows>;
-
-    try {
-      validateSetupNumbers({
-        appointmentDurationMin: args.appointmentDurationMin,
-        slotStepMin: args.slotStepMin,
-        bookingHorizonDays: args.bookingHorizonDays,
-        leadTimeMin: args.leadTimeMin,
-      });
-      normalizedWindows = validateAndSortWeeklyWindows(args.weeklyWindows);
-    } catch (error) {
-      throw asConvexError(error);
-    }
-
-    let clinicSlug: string;
-
-    try {
-      clinicSlug = normalizeClinicSlug(args.clinicSlug ?? clinicName);
-    } catch (error) {
-      throw asConvexError(error);
-    }
-
-    const timezone = timezoneForCity(args.city);
-
-    const clinic = await ctx.db
-      .query("clinics")
-      .withIndex("by_slug", (q) => q.eq("slug", clinicSlug))
-      .unique();
-
-    const clinicId = clinic
-      ? clinic._id
-      : await ctx.db.insert("clinics", {
-          name: clinicName,
-          slug: clinicSlug,
-          city: args.city,
-          timezone,
-          createdBySubject: identity.subject,
-        });
-
-    if (clinic) {
-      await ctx.db.patch(clinicId, {
-        name: clinicName,
-        city: args.city,
-        timezone,
-      });
-    }
-
-    const existingPolicy = await ctx.db
-      .query("clinicBookingPolicies")
-      .withIndex("by_clinicId", (q) => q.eq("clinicId", clinicId))
-      .unique();
-
-    if (existingPolicy) {
-      await ctx.db.patch(existingPolicy._id, {
-        appointmentDurationMin: args.appointmentDurationMin,
-        slotStepMin: args.slotStepMin,
-        leadTimeMin: args.leadTimeMin,
-        bookingHorizonDays: args.bookingHorizonDays,
-      });
-    } else {
-      await ctx.db.insert("clinicBookingPolicies", {
-        clinicId,
-        appointmentDurationMin: args.appointmentDurationMin,
-        slotStepMin: args.slotStepMin,
-        leadTimeMin: args.leadTimeMin,
-        bookingHorizonDays: args.bookingHorizonDays,
-      });
-    }
-
-    const provider = await ctx.db
-      .query("providers")
-      .withIndex("by_clinicId_and_name", (q) =>
-        q.eq("clinicId", clinicId).eq("name", providerName),
-      )
-      .unique();
-
-    const providerId = provider
-      ? provider._id
-      : await ctx.db.insert("providers", {
-          clinicId,
-          name: providerName,
-          isActive: true,
-        });
-
-    if (provider && !provider.isActive) {
-      await ctx.db.patch(provider._id, { isActive: true });
-    }
-
-    const existingWindows = await ctx.db
-      .query("providerWeeklySchedules")
-      .withIndex("by_providerId_and_dayOfWeek", (q) =>
-        q.eq("providerId", providerId),
-      )
-      .collect();
-
-    await Promise.all(
-      existingWindows.map((window) => ctx.db.delete(window._id)),
-    );
-
-    for (const window of normalizedWindows) {
-      await ctx.db.insert("providerWeeklySchedules", {
-        clinicId,
-        providerId,
-        dayOfWeek: window.dayOfWeek,
-        startMinute: window.startMinute,
-        endMinute: window.endMinute,
-      });
-    }
-
-    return {
-      clinicSlug,
-      providerName,
-    };
-  },
+  handler: async (ctx, args) => upsertClinicProviderSetupHandler(ctx, args),
 });
+
+type GetSetupSnapshotArgs = {
+  clinicSlug: string;
+  providerName: string;
+};
+
+export async function getSetupSnapshotHandler(
+  ctx: QueryCtx,
+  args: GetSetupSnapshotArgs,
+) {
+  const identity = await requireIdentity(ctx);
+
+  const clinic = await ctx.db
+    .query("clinics")
+    .withIndex("by_slug", (q) => q.eq("slug", args.clinicSlug))
+    .unique();
+
+  if (!clinic) {
+    return null;
+  }
+
+  if (clinic.createdBySubject !== identity.subject) {
+    return null;
+  }
+
+  const provider = await ctx.db
+    .query("providers")
+    .withIndex("by_clinicId_and_name", (q) =>
+      q.eq("clinicId", clinic._id).eq("name", args.providerName),
+    )
+    .unique();
+
+  if (!provider) {
+    return null;
+  }
+
+  const policy = await ctx.db
+    .query("clinicBookingPolicies")
+    .withIndex("by_clinicId", (q) => q.eq("clinicId", clinic._id))
+    .unique();
+
+  if (!policy) {
+    return null;
+  }
+
+  const weeklyWindows = await ctx.db
+    .query("providerWeeklySchedules")
+    .withIndex("by_providerId_and_dayOfWeek", (q) =>
+      q.eq("providerId", provider._id),
+    )
+    .collect();
+
+  const sortedWeeklyWindows = [...weeklyWindows].sort((left, right) => {
+    if (left.dayOfWeek !== right.dayOfWeek) {
+      return left.dayOfWeek - right.dayOfWeek;
+    }
+    return left.startMinute - right.startMinute;
+  });
+
+  return {
+    clinic: {
+      name: clinic.name,
+      slug: clinic.slug,
+      city: clinic.city,
+      timezone: clinic.timezone,
+      appointmentDurationMin: policy.appointmentDurationMin,
+      slotStepMin: policy.slotStepMin,
+      leadTimeMin: policy.leadTimeMin,
+      bookingHorizonDays: policy.bookingHorizonDays,
+    },
+    provider: {
+      name: provider.name,
+      isActive: provider.isActive,
+    },
+    weeklyWindows: sortedWeeklyWindows,
+  };
+}
 
 export const getSetupSnapshot = query({
   args: {
     clinicSlug: v.string(),
     providerName: v.string(),
   },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError({ code: SETUP_ERROR_CODES.AUTH_REQUIRED });
-    }
+  handler: async (ctx, args) => getSetupSnapshotHandler(ctx, args),
+});
 
-    const clinic = await ctx.db
-      .query("clinics")
-      .withIndex("by_slug", (q) => q.eq("slug", args.clinicSlug))
-      .unique();
+export async function getMyLatestSetupKeyHandler(ctx: QueryCtx) {
+  const identity = await requireIdentity(ctx);
 
-    if (!clinic) {
-      return null;
-    }
+  const ownedClinics = await ctx.db
+    .query("clinics")
+    .withIndex("by_createdBySubject", (q) =>
+      q.eq("createdBySubject", identity.subject),
+    )
+    .collect();
 
-    const provider = await ctx.db
+  const sortedOwnedClinics = [...ownedClinics].sort(
+    (left, right) => right._creationTime - left._creationTime,
+  );
+
+  for (const clinic of sortedOwnedClinics) {
+    const providers = await ctx.db
       .query("providers")
-      .withIndex("by_clinicId_and_name", (q) =>
-        q.eq("clinicId", clinic._id).eq("name", args.providerName),
-      )
-      .unique();
-
-    if (!provider) {
-      return null;
-    }
-
-    const policy = await ctx.db
-      .query("clinicBookingPolicies")
       .withIndex("by_clinicId", (q) => q.eq("clinicId", clinic._id))
-      .unique();
+      .collect();
 
-    if (!policy) {
-      return null;
+    const activeProvider = providers.find((provider) => provider.isActive);
+    const provider = activeProvider ?? providers[0];
+    if (!provider) {
+      continue;
     }
-
-    const weeklyWindows = await ctx.db
-      .query("providerWeeklySchedules")
-      .withIndex("by_providerId_and_dayOfWeek", (q) =>
-        q.eq("providerId", provider._id),
-      )
-      .collect();
-
-    const appointments = await ctx.db
-      .query("appointments")
-      .withIndex("by_providerId_and_startAtUtcMs", (q) =>
-        q.eq("providerId", provider._id),
-      )
-      .collect();
 
     return {
-      clinic: {
-        name: clinic.name,
-        slug: clinic.slug,
-        city: clinic.city,
-        timezone: clinic.timezone,
-        appointmentDurationMin: policy.appointmentDurationMin,
-        slotStepMin: policy.slotStepMin,
-        leadTimeMin: policy.leadTimeMin,
-        bookingHorizonDays: policy.bookingHorizonDays,
-      },
-      provider: {
-        name: provider.name,
-        isActive: provider.isActive,
-      },
-      weeklyWindows: weeklyWindows.sort((left, right) => {
-        if (left.dayOfWeek !== right.dayOfWeek) {
-          return left.dayOfWeek - right.dayOfWeek;
-        }
-        return left.startMinute - right.startMinute;
-      }),
-      appointmentSummary: {
-        total: appointments.length,
-        scheduled: appointments.filter(
-          (appointment) => appointment.status === "scheduled",
-        ).length,
-      },
+      clinicSlug: clinic.slug,
+      providerName: provider.name,
     };
-  },
-});
+  }
+
+  return null;
+}
 
 export const getMyLatestSetupKey = query({
   args: {
     intent: v.literal("bootstrap"),
   },
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError({ code: SETUP_ERROR_CODES.AUTH_REQUIRED });
-    }
-
-    const ownedClinics = (await ctx.db.query("clinics").collect())
-      .filter((clinic) => clinic.createdBySubject === identity.subject)
-      .sort((left, right) => right._creationTime - left._creationTime);
-
-    for (const clinic of ownedClinics) {
-      const providers = await ctx.db
-        .query("providers")
-        .withIndex("by_clinicId", (q) => q.eq("clinicId", clinic._id))
-        .collect();
-
-      const activeProvider = providers.find((provider) => provider.isActive);
-      const provider = activeProvider ?? providers[0];
-      if (!provider) {
-        continue;
-      }
-
-      return {
-        clinicSlug: clinic.slug,
-        providerName: provider.name,
-      };
-    }
-
-    return null;
-  },
+  handler: async (ctx) => getMyLatestSetupKeyHandler(ctx),
 });

@@ -24,6 +24,12 @@ type MockContextOptions = {
     startAtUtcMs?: number;
     endAtUtcMs?: number;
   } | null;
+  extraAppointments?: Array<{
+    id: Id<"appointments">;
+    startAtUtcMs: number;
+    status?: "scheduled" | "canceled";
+    confirmedAtUtcMs?: number;
+  }>;
   policyDurationMin?: number | null;
 };
 
@@ -72,53 +78,121 @@ function createMockContext(options: MockContextOptions = {}) {
   if (appointmentSeed) {
     appointments.set(APPOINTMENT_ID, appointmentSeed);
   }
+  for (const extra of options.extraAppointments ?? []) {
+    appointments.set(extra.id, {
+      _id: extra.id,
+      _creationTime: 5,
+      clinicId: CLINIC_ID,
+      providerId: PROVIDER_ID,
+      patientName: "Extra",
+      patientPhone: "+570000000000",
+      startAtUtcMs: extra.startAtUtcMs,
+      endAtUtcMs: extra.startAtUtcMs + 30 * 60 * 1_000,
+      status: extra.status ?? "scheduled",
+      ...(extra.confirmedAtUtcMs === undefined
+        ? {}
+        : { confirmedAtUtcMs: extra.confirmedAtUtcMs }),
+    });
+  }
 
   const getUserIdentity = vi
     .fn()
     .mockResolvedValue(identitySubject ? { subject: identitySubject } : null);
 
   const query = vi.fn().mockImplementation((table: string) => ({
-    withIndex: vi.fn().mockImplementation((index: string) => {
-      if (table === "clinics" && index === "by_slug") {
-        return { unique: vi.fn().mockResolvedValue(clinic) };
-      }
+    withIndex: vi
+      .fn()
+      .mockImplementation(
+        (index: string, applyIndex?: (queryBuilder: unknown) => unknown) => {
+          if (table === "clinics" && index === "by_slug") {
+            return { unique: vi.fn().mockResolvedValue(clinic) };
+          }
 
-      if (table === "providers" && index === "by_clinicId_and_name") {
-        return { unique: vi.fn().mockResolvedValue(provider) };
-      }
+          if (table === "providers" && index === "by_clinicId_and_name") {
+            return { unique: vi.fn().mockResolvedValue(provider) };
+          }
 
-      if (table === "clinicBookingPolicies" && index === "by_clinicId") {
-        return {
-          unique: vi.fn().mockResolvedValue(
-            policyDurationMin === null
-              ? null
-              : {
-                  _id: "policy_1" as Id<"clinicBookingPolicies">,
-                  _creationTime: 4,
-                  clinicId: CLINIC_ID,
-                  appointmentDurationMin: policyDurationMin,
-                  slotStepMin: 15,
-                  leadTimeMin: 60,
-                  bookingHorizonDays: 30,
-                },
-          ),
-        };
-      }
+          if (table === "clinicBookingPolicies" && index === "by_clinicId") {
+            return {
+              unique: vi.fn().mockResolvedValue(
+                policyDurationMin === null
+                  ? null
+                  : {
+                      _id: "policy_1" as Id<"clinicBookingPolicies">,
+                      _creationTime: 4,
+                      clinicId: CLINIC_ID,
+                      appointmentDurationMin: policyDurationMin,
+                      slotStepMin: 15,
+                      leadTimeMin: 60,
+                      bookingHorizonDays: 30,
+                    },
+              ),
+            };
+          }
 
-      if (
-        table === "appointments" &&
-        index === "by_providerId_and_startAtUtcMs"
-      ) {
-        return {
-          collect: vi.fn().mockResolvedValue(Array.from(appointments.values())),
-        };
-      }
+          if (
+            table === "appointments" &&
+            index === "by_providerId_and_startAtUtcMs"
+          ) {
+            let providerId: Id<"providers"> | null = null;
+            let rangeStart: number | null = null;
+            let rangeEnd: number | null = null;
+            const queryBuilder = {
+              eq(field: string, value: unknown) {
+                if (field === "providerId") {
+                  providerId = value as Id<"providers">;
+                }
+                return queryBuilder;
+              },
+              gte(field: string, value: number) {
+                if (field === "startAtUtcMs") {
+                  rangeStart = value;
+                }
+                return queryBuilder;
+              },
+              lte(field: string, value: number) {
+                if (field === "startAtUtcMs") {
+                  rangeEnd = value;
+                }
+                return queryBuilder;
+              },
+            };
+            applyIndex?.(queryBuilder);
 
-      return {
-        unique: vi.fn().mockResolvedValue(null),
-        collect: vi.fn().mockResolvedValue([]),
-      };
-    }),
+            return {
+              take: vi.fn().mockImplementation(async (limit: number) => {
+                const sorted = Array.from(appointments.values()).sort(
+                  (left, right) => left.startAtUtcMs - right.startAtUtcMs,
+                );
+                const filtered = sorted.filter((appointment) => {
+                  if (providerId && appointment.providerId !== providerId) {
+                    return false;
+                  }
+                  if (
+                    rangeStart !== null &&
+                    appointment.startAtUtcMs < rangeStart
+                  ) {
+                    return false;
+                  }
+                  if (
+                    rangeEnd !== null &&
+                    appointment.startAtUtcMs > rangeEnd
+                  ) {
+                    return false;
+                  }
+                  return true;
+                });
+                return filtered.slice(0, limit);
+              }),
+            };
+          }
+
+          return {
+            unique: vi.fn().mockResolvedValue(null),
+            collect: vi.fn().mockResolvedValue([]),
+          };
+        },
+      ),
   }));
 
   const get = vi.fn().mockImplementation(async (id: string) => {
@@ -154,13 +228,17 @@ function createMockContext(options: MockContextOptions = {}) {
       return "created";
     });
 
+  const runMutation = vi.fn().mockResolvedValue({ ok: true });
+
   return {
     ctx: {
       auth: { getUserIdentity },
+      runMutation,
       db: { query, get, patch, insert },
     },
     spies: {
       getUserIdentity,
+      runMutation,
       query,
       get,
       patch,
@@ -315,6 +393,42 @@ describe("scheduling handlers", () => {
       endAtUtcMs: 1_801_000,
       status: "scheduled",
     });
+    expect(mock.spies.runMutation).toHaveBeenCalled();
+  });
+
+  it("lists appointments using indexed range bounds and respects limit", async () => {
+    const mock = createMockContext({
+      appointment: null,
+      extraAppointments: [
+        {
+          id: "appointment_2" as Id<"appointments">,
+          startAtUtcMs: 1_100,
+        },
+        {
+          id: "appointment_3" as Id<"appointments">,
+          startAtUtcMs: 1_500,
+        },
+        {
+          id: "appointment_4" as Id<"appointments">,
+          startAtUtcMs: 2_100,
+        },
+      ],
+    });
+    const ctx = mock.ctx as unknown as Parameters<
+      typeof listAppointmentsForOwnerHandler
+    >[0];
+
+    const appointments = await listAppointmentsForOwnerHandler(ctx, {
+      clinicSlug: "clinica-centro",
+      providerName: "Dr. Rivera",
+      rangeStartUtcMs: 1_000,
+      rangeEndUtcMs: 2_000,
+      limit: 2,
+    });
+
+    expect(appointments.map((appointment) => appointment.startAtUtcMs)).toEqual(
+      [1_100, 1_500],
+    );
   });
 
   it("confirm is idempotent and second retry returns changed false", async () => {

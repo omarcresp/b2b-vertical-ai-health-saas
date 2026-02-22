@@ -10,9 +10,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RouterContext } from "./router";
 import { routeTree } from "./routeTree.gen";
 
-const { mockProviderRender, mockSignIn } = vi.hoisted(() => ({
+const { mockProviderRender, mockSignIn, mockAuthState } = vi.hoisted(() => ({
   mockProviderRender: vi.fn(),
   mockSignIn: vi.fn(),
+  mockAuthState: {
+    isLoading: false,
+    user: null as null | { id: string },
+  },
 }));
 
 vi.mock("@/features/setup/workspace", () => ({
@@ -57,21 +61,23 @@ vi.mock("@/features/setup/workspace", () => ({
 
 vi.mock("@workos-inc/authkit-react", () => ({
   useAuth: () => ({
-    isLoading: false,
-    user: null,
+    isLoading: mockAuthState.isLoading,
+    user: mockAuthState.user,
     signIn: mockSignIn,
   }),
 }));
 
 function renderAtPath(pathname: string, auth?: Partial<RouterContext["auth"]>) {
+  const isLoading = auth?.isLoading ?? false;
+  const isAuthenticated = auth?.isAuthenticated ?? true;
+
+  mockAuthState.isLoading = isLoading;
+  mockAuthState.user = isAuthenticated ? { id: "user_1" } : null;
+
   const context: RouterContext = {
     auth: {
-      isLoading: auth?.isLoading ?? false,
-      isAuthenticated: auth?.isAuthenticated ?? true,
-    },
-    navigation: {
-      appPath: "/app",
-      callbackPath: "/callback",
+      isLoading,
+      isAuthenticated,
     },
   };
 
@@ -90,6 +96,8 @@ function renderAtPath(pathname: string, auth?: Partial<RouterContext["auth"]>) {
 describe("router migration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthState.isLoading = false;
+    mockAuthState.user = null;
   });
 
   it("redirects / to /app/setup", async () => {
@@ -98,6 +106,30 @@ describe("router migration", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/app/setup");
     });
+  });
+
+  it("redirects unauthenticated users to /callback with the original path", async () => {
+    const router = renderAtPath("/app/setup?clinicSlug=clinica-centro", {
+      isAuthenticated: false,
+      isLoading: false,
+    });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/callback");
+      expect(router.state.location.search).toMatchObject({
+        redirect: "/app/setup?clinicSlug=clinica-centro",
+      });
+    });
+  });
+
+  it("renders a loading guard while auth state is unresolved", async () => {
+    renderAtPath("/app/setup", {
+      isAuthenticated: false,
+      isLoading: true,
+    });
+
+    expect(await screen.findByText("Loading workspace...")).toBeInTheDocument();
+    expect(screen.queryByText("Setup screen")).not.toBeInTheDocument();
   });
 
   it("renders /callback safely", async () => {

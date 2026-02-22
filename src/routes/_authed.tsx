@@ -1,19 +1,33 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { useAuth } from "@workos-inc/authkit-react";
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: ({ context, location }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-
-    if (!context.auth.isAuthenticated) {
+    if (!context.auth.isLoading && !context.auth.isAuthenticated) {
       throw redirect({
-        to: context.navigation.callbackPath,
+        to: "/callback",
         search: {
-          redirect: `${location.pathname}${location.search}`,
+          redirect: `${location.pathname}${location.searchStr}`,
         },
       });
     }
   },
-  component: Outlet,
+  pendingMs: 0,
+  pendingComponent: () => (
+    <main className="flex min-h-screen items-center justify-center bg-background">
+      <p className="text-sm text-muted-foreground">Loading workspace...</p>
+    </main>
+  ),
+  component: () => {
+    const { isLoading } = useAuth();
+    if (isLoading) {
+      return (
+        <main className="flex min-h-screen items-center justify-center bg-background">
+          <p className="text-sm text-muted-foreground">Loading workspace...</p>
+        </main>
+      );
+    }
+
+    return <Outlet />;
+  },
 });

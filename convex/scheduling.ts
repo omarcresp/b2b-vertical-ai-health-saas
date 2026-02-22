@@ -7,6 +7,7 @@ import {
   type QueryCtx,
   query,
 } from "./_generated/server";
+import { rateLimiter } from "./rateLimiter";
 
 function schedulingError(
   code: (typeof SCHEDULING_ERROR_CODES)[keyof typeof SCHEDULING_ERROR_CODES],
@@ -140,6 +141,13 @@ export async function createAppointmentForOwnerHandler(
     startAtUtcMs: number;
   },
 ) {
+  const identity = await requireIdentity(ctx);
+  await rateLimiter.limit(ctx, "addNumberGlobal", { throws: true });
+  await rateLimiter.limit(ctx, "addNumberPerUser", {
+    key: identity.subject,
+    throws: true,
+  });
+
   const { clinic, provider } = await resolveClinicProviderForOwner(ctx, args);
   const patientName = requireNonEmpty(args.patientName, "patientName");
   const patientPhone = requireNonEmpty(args.patientPhone, "patientPhone");
@@ -194,18 +202,14 @@ export async function listAppointmentsForOwnerHandler(
   const appointments = await ctx.db
     .query("appointments")
     .withIndex("by_providerId_and_startAtUtcMs", (q) =>
-      q.eq("providerId", provider._id),
+      q
+        .eq("providerId", provider._id)
+        .gte("startAtUtcMs", args.rangeStartUtcMs)
+        .lte("startAtUtcMs", args.rangeEndUtcMs),
     )
-    .collect();
+    .take(limit);
 
-  return appointments
-    .filter(
-      (appointment) =>
-        appointment.startAtUtcMs >= args.rangeStartUtcMs &&
-        appointment.startAtUtcMs <= args.rangeEndUtcMs,
-    )
-    .sort((left, right) => left.startAtUtcMs - right.startAtUtcMs)
-    .slice(0, limit);
+  return appointments;
 }
 
 export async function getAppointmentByIdForOwnerHandler(

@@ -14,6 +14,12 @@ describe("setupValidation", () => {
     expect(normalizeClinicSlug("Clínica Centro")).toBe("clinica-centro");
   });
 
+  it("rejects overly long slug source values before regex normalization", () => {
+    expect(() => normalizeClinicSlug("a".repeat(121))).toThrow(
+      "Clinic slug source is too long",
+    );
+  });
+
   it("maps city to constrained timezone", () => {
     expect(timezoneForCity("cdmx")).toBe("America/Mexico_City");
     expect(timezoneForCity("bogota")).toBe("America/Bogota");

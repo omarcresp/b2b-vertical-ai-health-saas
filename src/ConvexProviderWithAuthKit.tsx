@@ -21,11 +21,11 @@ export function ConvexProviderWithAuthKit({
   children,
   client,
   useAuth,
-}: {
+}: Readonly<{
   children: ReactNode;
   client: ConvexReactClient;
   useAuth: UseAuth;
-}) {
+}>) {
   const useAuthFromWorkOS = useUseAuthFromAuthKit(useAuth);
   return (
     <ConvexProviderWithAuth client={client} useAuth={useAuthFromWorkOS}>

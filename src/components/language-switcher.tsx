@@ -31,11 +31,11 @@ export function LanguageSwitcher({
   currentLocale,
   disabled,
   onChange,
-}: {
+}: Readonly<{
   currentLocale: string;
   disabled?: boolean;
   onChange: (locale: SupportedLocale) => void;
-}) {
+}>) {
   const { t } = useTranslation("common");
   const selectedLocale = coerceLocaleForSelector(currentLocale);
 

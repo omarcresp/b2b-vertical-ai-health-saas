@@ -8,20 +8,12 @@ export type RouterContext = {
     isLoading: boolean;
     isAuthenticated: boolean;
   };
-  navigation: {
-    appPath: "/app";
-    callbackPath: "/callback";
-  };
 };
 
 const defaultRouterContext: RouterContext = {
   auth: {
     isLoading: true,
     isAuthenticated: false,
-  },
-  navigation: {
-    appPath: "/app",
-    callbackPath: "/callback",
   },
 };
 
@@ -43,10 +35,6 @@ export function AppRouterProvider() {
       auth: {
         isLoading,
         isAuthenticated: Boolean(user),
-      },
-      navigation: {
-        appPath: "/app",
-        callbackPath: "/callback",
       },
     }),
     [isLoading, user],

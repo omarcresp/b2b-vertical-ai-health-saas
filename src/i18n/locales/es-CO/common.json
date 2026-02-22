@@ -15,5 +15,10 @@
   },
   "actions": {
     "remove": "Eliminar"
+  },
+  "nav": {
+    "setup": "Configuración",
+    "snapshot": "Resumen",
+    "appointments": "Citas"
   }
 }
