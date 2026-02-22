@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ONCE_SCRIPT="$ROOT_DIR/tasks/ralph-once-cleanup.sh"
+ONCE_SCRIPT="$ROOT_DIR/ralph-once-cleanup.sh"
 STATE_DIR="$ROOT_DIR/.ralph"
 LAST_MSG_FILE="$STATE_DIR/cleanup-last-message.txt"
 MAX_PASSES="${MAX_PASSES:-50}"

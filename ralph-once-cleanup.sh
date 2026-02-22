@@ -43,14 +43,13 @@ Primary objective:
 Execution policy per run:
 1. Read tasks/cleanup.md.
 2. Select exactly one highest-priority task with status TODO (or resume one IN_PROGRESS task).
-3. Implement a minimal tracer-bullet slice end to end.
+3. Understand the issue, avoid blindly beleive but rather research and find how to properly fix the pain.
 4. Run targeted validation for changed code (typecheck/lint/tests only as needed for the slice).
 5. Update tasks/cleanup.md:
    - Set chosen task to IN_PROGRESS when starting.
-   - Set to DONE when acceptance criteria are met.
+   - Set to DONE when acceptance criteria are met and commit changes.
    - Set to BLOCKED with a short blocker note if you cannot continue.
    - Add one short Progress Log entry with date and what changed.
-6. Commit only after fully completed a task.
 
 Guardrails:
 - Keep changes small and reversible.
@@ -65,8 +64,7 @@ PROMPT_EOF
 
 printf '%s\n' "$PROMPT" | "$AGENT_BIN" exec \
   --cd "$ROOT_DIR" \
-  --full-auto \
-  --search \
+  --dangerously-bypass-approvals-and-sandbox \
   --output-last-message "$LAST_MSG_FILE" \
   -
 
