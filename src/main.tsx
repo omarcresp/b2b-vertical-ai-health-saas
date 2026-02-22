@@ -4,9 +4,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ConvexProviderWithAuthKit } from "./ConvexProviderWithAuthKit";
 import "./index.css";
-import App from "./App.tsx";
+import "./i18n";
 import { ThemeProvider } from "./components/theme-provider";
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
+import { AppRouterProvider } from "./router";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
 const rootElement = document.getElementById("root");
@@ -24,7 +25,7 @@ createRoot(rootElement).render(
       >
         <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
           <ConvexProviderWithAuthKit client={convex} useAuth={useAuth}>
-            <App />
+            <AppRouterProvider />
           </ConvexProviderWithAuthKit>
         </ThemeProvider>
       </AuthKitProvider>

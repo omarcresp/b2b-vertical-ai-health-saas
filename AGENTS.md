@@ -104,6 +104,30 @@ VITE_CONVEX_URL=             # From `npx convex dev` output
 - **Tests**: Vitest + jsdom; test setup at `src/test/setup.ts`
 - **Code quality**: SonarCloud via `coverage/lcov.info`; config in `sonar-project.properties`
 
+### i18next (i18n:next) Usage
+
+- i18n runtime entrypoint: `src/i18n/index.ts`; imported once in `src/main.tsx`.
+- Source locale: `en-US`. User-selectable locales: `en-US`, `es-MX`, `es-CO`; fallback-only locale: `es`.
+- Keep translations in `src/i18n/locales/<locale>/<namespace>.json` and prefer stable namespaces (`common`, `setup`).
+- Use explicit namespaced keys in UI (`t("setup:header.title")`) and avoid runtime-built keys.
+- Keep backend localized messaging code-based: throw stable error codes server-side and map in `src/lib/i18n-errors.ts`.
+- Persist user locale via Convex `userPreferences`; apply locale optimistically in UI, then sync server preference.
+
+**i18n workflow**
+1. Add/update English (`en-US`) keys first.
+2. Add corresponding keys in `es`, `es-MX`, `es-CO`.
+3. Run `bun run i18n:extract`.
+4. Run `bun run i18n:lint`.
+5. Run `bun run i18n:typegen`.
+6. Run `bun run i18n:check`.
+
+**i18n best practices**
+- Prefer static keys and interpolation values over string concatenation.
+- Keep keys semantic and stable; never reuse one key for unrelated UI copy.
+- Keep business logic locale-independent (codes/enums); translate only at the presentation layer.
+- Add/adjust tests for visible translated labels on critical flows after copy changes.
+- When adding locales or namespaces, update loader config and fallback behavior in `src/i18n/index.ts`.
+
 ## Code Standards
 
 - Strict TypeScript. All Convex function args require `v.` validators — no unvalidated input accepted.
@@ -153,7 +177,7 @@ For non-trivial implementation or architecture decisions:
 ## Change Checklist
 
 Before finishing any change:
-1. `bun run typecheck && bun run lint && bun run test`
+1. `bun run i18n:check && bun run typecheck && bun run lint && bun run test`
 2. If backend changed: `bunx convex codegen`
 3. Summarize behavior changes and trade-offs in your response.
 4. List remaining risks and follow-ups explicitly.

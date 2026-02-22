@@ -6,7 +6,8 @@
       "!.agents",
       "!node_modules",
       "!dist",
-      "!convex/_generated"
+      "!convex/_generated",
+      "!src/routeTree.gen.ts"
     ]
   },
   "formatter": {

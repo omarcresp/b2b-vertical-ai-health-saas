@@ -1,0 +1,188 @@
+{
+  "header": {
+    "kicker": "Estudio de configuración",
+    "title": "Planificador + Simulador",
+    "subtitle": "Planificación semanal con plantillas y análisis de capacidad en tiempo real."
+  },
+  "badges": {
+    "weeklyBoard": "Tablero semanal",
+    "templateStarter": "Inicio con plantilla",
+    "capacitySandbox": "Sandbox de capacidad"
+  },
+  "unauthenticated": {
+    "message": "Inicia sesión para configurar la clínica y el profesional."
+  },
+  "planner": {
+    "title": "Estudio de planificación y simulación",
+    "subtitle": "Comienza con una plantilla, ajusta por día y valida capacidad en vivo.",
+    "addWindowToDay": "Agregar bloque a {{day}}",
+    "templateLabel": "Comienza con una plantilla de horario",
+    "daySummary": "{{count}} bloques • {{minutes}} min",
+    "daySummary_one": "{{count}} bloque • {{minutes}} min",
+    "daySummary_other": "{{count}} bloques • {{minutes}} min",
+    "daySummary_many": "{{count}} bloques • {{minutes}} min",
+    "moreWindows": "+{{count}} más",
+    "moreWindows_one": "+{{count}} más",
+    "moreWindows_other": "+{{count}} más",
+    "moreWindows_many": "+{{count}} más",
+    "focusedDay": "Día enfocado: {{day}}",
+    "emptyFocusedDay": "Aún no hay bloques para este día.",
+    "fields": {
+      "start": "Inicio (HH:MM)",
+      "end": "Fin (HH:MM)"
+    }
+  },
+  "capacity": {
+    "title": "Simulación de capacidad",
+    "subtitle": "Ajusta restricciones e inspecciona la capacidad resultante al instante.",
+    "fields": {
+      "appointmentDuration": "Duración de cita (min)",
+      "slotStep": "Paso entre turnos (min)",
+      "leadTime": "Tiempo de anticipación (min)",
+      "bookingHorizon": "Horizonte de reserva (días)"
+    }
+  },
+  "metrics": {
+    "weeklyOpenMinutes": "Minutos abiertos por semana",
+    "slotsByStep": "Turnos por paso",
+    "visitsByDuration": "Visitas por duración",
+    "horizonSlotEstimate": "Estimación de turnos en horizonte"
+  },
+  "identity": {
+    "title": "Identidad + idioma",
+    "fields": {
+      "clinicName": "Nombre de clínica",
+      "providerName": "Nombre del profesional",
+      "city": "Ciudad"
+    },
+    "placeholders": {
+      "clinicName": "Clínica Centro",
+      "providerName": "Dr. Rivera"
+    },
+    "timezoneLabel": "Zona horaria"
+  },
+  "submit": {
+    "saveSetup": "Guardar configuración",
+    "saving": "Guardando...",
+    "saved": "Configuración guardada."
+  },
+  "snapshot": {
+    "title": "Instantánea guardada",
+    "empty": "Envía la configuración para obtener los datos persistidos de clínica/profesional.",
+    "loading": "Cargando instantánea...",
+    "missing": "No se encontró ninguna instantánea.",
+    "labels": {
+      "clinic": "Clínica",
+      "city": "Ciudad",
+      "timezone": "Zona horaria",
+      "provider": "Profesional",
+      "config": "Configuración",
+      "windows": "Bloques",
+      "appointments": "Citas"
+    },
+    "config": "{{duration}}m de duración, {{step}}m de paso",
+    "appointments": "{{scheduled}}/{{total}} agendadas"
+  },
+  "days": {
+    "0": "Dom",
+    "1": "Lun",
+    "2": "Mar",
+    "3": "Mié",
+    "4": "Jue",
+    "5": "Vie",
+    "6": "Sáb"
+  },
+  "cities": {
+    "cdmx": "CDMX",
+    "bogota": "Bogotá"
+  },
+  "templates": {
+    "weekday": {
+      "label": "Estándar semanal",
+      "description": "Lun-Vie 09:00-17:00"
+    },
+    "extended": {
+      "label": "Extendido",
+      "description": "Lun-Vie 08:00-18:00 + Sáb 08:00-14:00"
+    },
+    "split": {
+      "label": "Turnos partidos",
+      "description": "Lun-Vie 08:00-12:00 y 14:00-18:00"
+    }
+  },
+  "appointments": {
+    "title": "Gestor de citas",
+    "subtitle": "Crea y administra próximas citas para este profesional.",
+    "blocked": "Guarda la configuración primero para habilitar la gestión de citas.",
+    "fields": {
+      "patientName": "Nombre del paciente",
+      "patientPhone": "Teléfono del paciente",
+      "date": "Fecha",
+      "timeslot": "Horario"
+    },
+    "placeholders": {
+      "patientName": "María Gómez",
+      "patientPhone": "+573001112233"
+    },
+    "actions": {
+      "create": "Crear cita",
+      "creating": "Creando...",
+      "confirm": "Confirmar",
+      "cancel": "Cancelar"
+    },
+    "messages": {
+      "created": "Cita creada.",
+      "missingFields": "Nombre, teléfono, fecha y horario son obligatorios.",
+      "noSlotsForDate": "No hay horarios basados en agenda para la fecha seleccionada.",
+      "loading": "Cargando citas..."
+    },
+    "list": {
+      "empty": "No hay citas en los próximos 30 días.",
+      "columns": {
+        "patient": "Paciente",
+        "start": "Inicio",
+        "status": "Estado",
+        "actions": "Acciones"
+      }
+    },
+    "status": {
+      "scheduled": "Agendada",
+      "scheduledConfirmed": "Agendada + confirmada",
+      "canceled": "Cancelada"
+    }
+  },
+  "errors": {
+    "unknown": "No se pudo guardar la configuración en este momento.",
+    "client": {
+      "requiredNames": "El nombre de la clínica y del profesional son obligatorios.",
+      "integer": "{{field}} debe ser un entero.",
+      "durationAndStepPositive": "La duración y el paso deben ser mayores que 0.",
+      "leadTimeAndHorizon": "El tiempo de anticipación debe ser >= 0 y el horizonte > 0.",
+      "addWeeklyWindow": "Agrega al menos un bloque semanal.",
+      "malformedTime": "La ventana {{index}} tiene una hora inválida. Usa HH:MM (24h).",
+      "windowOrder": "La ventana {{index}} debe iniciar antes de terminar.",
+      "windowInvalidDay": "La ventana {{index}} tiene un día inválido.",
+      "windowsOverlap": "Hay bloques superpuestos al menos en un día."
+    },
+    "fields": {
+      "appointmentDuration": "Duración de cita",
+      "slotStep": "Paso entre turnos",
+      "leadTime": "Tiempo de anticipación",
+      "bookingHorizon": "Horizonte de reserva"
+    },
+    "server": {
+      "setupAuthRequired": "Se requiere autenticación.",
+      "setupInvalidPayload": "Carga de configuración inválida.",
+      "setupClinicSlugEmpty": "El slug de clínica quedó vacío tras normalizarse.",
+      "setupWeeklyWindowRequired": "Se requiere al menos una ventana semanal.",
+      "setupWeeklyWindowOverlap": "Hay ventanas semanales superpuestas.",
+      "setupWeeklyWindowInvalid": "Una o más ventanas semanales son inválidas.",
+      "setupNumberInvalid": "Uno o más campos numéricos son inválidos.",
+      "schedulingAuthRequired": "Se requiere autenticación.",
+      "schedulingForbidden": "No tienes acceso a esta clínica.",
+      "schedulingNotFound": "No se encontró el contexto de la cita.",
+      "schedulingInvalidPayload": "Carga de cita inválida.",
+      "schedulingInvalidTransition": "La transición de estado de la cita es inválida."
+    }
+  }
+}

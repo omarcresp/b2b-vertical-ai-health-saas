@@ -1,0 +1,19 @@
+{
+  "auth": {
+    "signIn": "Iniciar sesión",
+    "signOut": "Cerrar sesión"
+  },
+  "locale": {
+    "label": "Idioma",
+    "enUS": "Inglés (EE. UU.)",
+    "esMX": "Español (México)",
+    "esCO": "Español (Colombia)",
+    "saveError": "No se pudo guardar la preferencia de idioma en este momento."
+  },
+  "status": {
+    "live": "En vivo"
+  },
+  "actions": {
+    "remove": "Eliminar"
+  }
+}

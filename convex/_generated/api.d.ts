@@ -8,8 +8,11 @@
  * @module
  */
 
-import type * as myFunctions from "../myFunctions.js";
 import type * as rateLimiter from "../rateLimiter.js";
+import type * as scheduling from "../scheduling.js";
+import type * as setup from "../setup.js";
+import type * as setupValidation from "../setupValidation.js";
+import type * as userPreferences from "../userPreferences.js";
 
 import type {
   ApiFromModules,
@@ -18,8 +21,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  myFunctions: typeof myFunctions;
   rateLimiter: typeof rateLimiter;
+  scheduling: typeof scheduling;
+  setup: typeof setup;
+  setupValidation: typeof setupValidation;
+  userPreferences: typeof userPreferences;
 }>;
 
 /**

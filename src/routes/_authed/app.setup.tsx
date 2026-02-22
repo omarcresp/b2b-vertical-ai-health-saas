@@ -1,0 +1,6 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { SetupWorkspaceSetupScreen } from "@/features/setup/workspace";
+
+export const Route = createFileRoute("/_authed/app/setup")({
+  component: SetupWorkspaceSetupScreen,
+});

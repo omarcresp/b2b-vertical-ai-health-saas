@@ -1,0 +1,188 @@
+{
+  "header": {
+    "kicker": "Setup Studio",
+    "title": "Planner + Simulator",
+    "subtitle": "Template-driven week planning with live capacity what-if analysis."
+  },
+  "badges": {
+    "weeklyBoard": "Weekly board",
+    "templateStarter": "Template starter",
+    "capacitySandbox": "Capacity sandbox"
+  },
+  "unauthenticated": {
+    "message": "Sign in to configure clinic and provider setup."
+  },
+  "planner": {
+    "title": "Planner-simulator studio",
+    "subtitle": "Start with a template, sculpt by day, validate capacity live.",
+    "addWindowToDay": "Add window to {{day}}",
+    "templateLabel": "Start from a schedule template",
+    "daySummary": "{{count}} windows • {{minutes}} min",
+    "daySummary_one": "{{count}} window • {{minutes}} min",
+    "daySummary_other": "{{count}} windows • {{minutes}} min",
+    "daySummary_many": "{{count}} windows • {{minutes}} min",
+    "moreWindows": "+{{count}} more",
+    "moreWindows_one": "+{{count}} more",
+    "moreWindows_other": "+{{count}} more",
+    "moreWindows_many": "+{{count}} more",
+    "focusedDay": "Focused day: {{day}}",
+    "emptyFocusedDay": "No windows yet for this day.",
+    "fields": {
+      "start": "Start (HH:MM)",
+      "end": "End (HH:MM)"
+    }
+  },
+  "capacity": {
+    "title": "Capacity simulation",
+    "subtitle": "Tune constraints and inspect downstream capacity instantly.",
+    "fields": {
+      "appointmentDuration": "Appointment duration (min)",
+      "slotStep": "Slot step (min)",
+      "leadTime": "Lead time (min)",
+      "bookingHorizon": "Booking horizon (days)"
+    }
+  },
+  "metrics": {
+    "weeklyOpenMinutes": "Weekly open minutes",
+    "slotsByStep": "Slots by step",
+    "visitsByDuration": "Visits by duration",
+    "horizonSlotEstimate": "Horizon slot estimate"
+  },
+  "identity": {
+    "title": "Identity + locale",
+    "fields": {
+      "clinicName": "Clinic name",
+      "providerName": "Provider name",
+      "city": "City"
+    },
+    "placeholders": {
+      "clinicName": "Clinica Centro",
+      "providerName": "Dr. Rivera"
+    },
+    "timezoneLabel": "Timezone"
+  },
+  "submit": {
+    "saveSetup": "Save setup",
+    "saving": "Saving...",
+    "saved": "Setup saved."
+  },
+  "snapshot": {
+    "title": "Saved snapshot",
+    "empty": "Submit setup to fetch persisted clinic/provider data.",
+    "loading": "Loading snapshot...",
+    "missing": "No snapshot found.",
+    "labels": {
+      "clinic": "Clinic",
+      "city": "City",
+      "timezone": "Timezone",
+      "provider": "Provider",
+      "config": "Config",
+      "windows": "Windows",
+      "appointments": "Appointments"
+    },
+    "config": "{{duration}}m duration, {{step}}m step",
+    "appointments": "{{scheduled}}/{{total}} scheduled"
+  },
+  "days": {
+    "0": "Sun",
+    "1": "Mon",
+    "2": "Tue",
+    "3": "Wed",
+    "4": "Thu",
+    "5": "Fri",
+    "6": "Sat"
+  },
+  "cities": {
+    "cdmx": "CDMX",
+    "bogota": "Bogota"
+  },
+  "templates": {
+    "weekday": {
+      "label": "Weekday standard",
+      "description": "Mon-Fri 09:00-17:00"
+    },
+    "extended": {
+      "label": "Extended",
+      "description": "Mon-Fri 08:00-18:00 + Sat 08:00-14:00"
+    },
+    "split": {
+      "label": "Split shifts",
+      "description": "Mon-Fri 08:00-12:00 and 14:00-18:00"
+    }
+  },
+  "appointments": {
+    "title": "Appointment Manager",
+    "subtitle": "Create and manage upcoming appointments for this provider.",
+    "blocked": "Save setup first to unlock appointment management.",
+    "fields": {
+      "patientName": "Patient name",
+      "patientPhone": "Patient phone",
+      "date": "Date",
+      "timeslot": "Timeslot"
+    },
+    "placeholders": {
+      "patientName": "Maria Gomez",
+      "patientPhone": "+573001112233"
+    },
+    "actions": {
+      "create": "Create appointment",
+      "creating": "Creating...",
+      "confirm": "Confirm",
+      "cancel": "Cancel"
+    },
+    "messages": {
+      "created": "Appointment created.",
+      "missingFields": "Patient name, phone, date, and timeslot are required.",
+      "noSlotsForDate": "No schedule-based timeslots for the selected date.",
+      "loading": "Loading appointments..."
+    },
+    "list": {
+      "empty": "No appointments in the next 30 days.",
+      "columns": {
+        "patient": "Patient",
+        "start": "Start",
+        "status": "Status",
+        "actions": "Actions"
+      }
+    },
+    "status": {
+      "scheduled": "Scheduled",
+      "scheduledConfirmed": "Scheduled + confirmed",
+      "canceled": "Canceled"
+    }
+  },
+  "errors": {
+    "unknown": "Unable to save setup right now.",
+    "client": {
+      "requiredNames": "Clinic name and provider name are required.",
+      "integer": "{{field}} must be an integer.",
+      "durationAndStepPositive": "Duration and slot step must be greater than 0.",
+      "leadTimeAndHorizon": "Lead time must be >= 0 and booking horizon must be > 0.",
+      "addWeeklyWindow": "Add at least one weekly window.",
+      "malformedTime": "Window {{index}} has malformed time. Use HH:MM (24h).",
+      "windowOrder": "Window {{index}} must have start before end.",
+      "windowInvalidDay": "Window {{index}} has an invalid day.",
+      "windowsOverlap": "Windows overlap on at least one day."
+    },
+    "fields": {
+      "appointmentDuration": "Appointment duration",
+      "slotStep": "Slot step",
+      "leadTime": "Lead time",
+      "bookingHorizon": "Booking horizon"
+    },
+    "server": {
+      "setupAuthRequired": "Authentication is required.",
+      "setupInvalidPayload": "Invalid setup payload.",
+      "setupClinicSlugEmpty": "Clinic slug cannot be empty after normalization.",
+      "setupWeeklyWindowRequired": "At least one weekly schedule window is required.",
+      "setupWeeklyWindowOverlap": "Weekly schedule windows overlap on one or more days.",
+      "setupWeeklyWindowInvalid": "One or more weekly windows are invalid.",
+      "setupNumberInvalid": "One or more numeric fields are invalid.",
+      "schedulingAuthRequired": "Authentication is required.",
+      "schedulingForbidden": "You do not have access to this clinic.",
+      "schedulingNotFound": "Appointment context not found.",
+      "schedulingInvalidPayload": "Invalid appointment payload.",
+      "schedulingInvalidTransition": "Appointment status transition is invalid."
+    }
+  }
+}
