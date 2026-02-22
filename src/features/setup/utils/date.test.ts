@@ -36,4 +36,16 @@ describe("parseDateInput", () => {
   it("rejects invalid calendar dates", () => {
     expect(parseDateInput("2026-02-30")).toBeNull();
   });
+
+  it("parses a valid date into a structured object", () => {
+    expect(parseDateInput("2026-02-23")).not.toBeNull();
+  });
+
+  it("accepts a leap year date (2024-02-29)", () => {
+    expect(parseDateInput("2024-02-29")).not.toBeNull();
+  });
+
+  it("rejects Feb 29 on a non-leap year", () => {
+    expect(parseDateInput("2026-02-29")).toBeNull();
+  });
 });

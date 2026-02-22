@@ -32,10 +32,10 @@
     "i18n:lint": "i18next-cli lint",
     "i18n:typegen": "i18next-cli types",
     "i18n:check": "i18next-cli status",
-    "ci": "bun run i18n:check && bun run typecheck && bun run lint && bun run test && bun run build",
+    "ci": "bun run i18n:check && bun run format:check && bun run typecheck && bun run lint && bun run test && bun run build",
     "format": "biome format . --write",
     "format:changed": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && biome format --changed --write || biome format . --write",
-    "format:check": "biome format ."
+    "format:check": "biome check . --formatter-enabled=true --linter-enabled=false --error-on-warnings"
   },
   "dependencies": {
     "@convex-dev/rate-limiter": "^0.3.2",
