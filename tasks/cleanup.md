@@ -31,10 +31,10 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 ## Status Board
 | Status | Count |
 |---|---:|
-| TODO | 14 |
+| TODO | 13 |
 | IN_PROGRESS | 0 |
 | BLOCKED | 1 |
-| DONE | 2 |
+| DONE | 3 |
 
 ## Backlog
 | ID | Priority | Title | Status | Dependencies |
@@ -45,7 +45,7 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 | CLN-04 | P0 | Remove derived-state reset effect in `AppointmentManager` | DONE | - |
 | CLN-05 | P0 | Remove prop-to-state sync effects for snapshot key | TODO | CLN-10 |
 | CLN-06 | P2 | Replace latest-ref callback pattern with `useEffectEvent` strategy | TODO | - |
-| CLN-07 | P0 | Add timeout/error path to auth wait guard | TODO | - |
+| CLN-07 | P0 | Add timeout/error path to auth wait guard | DONE | - |
 | CLN-08 | P0 | Fix stale `availabilityNowUtcMs` ref behavior | TODO | - |
 | CLN-09 | P2 | Introduce Suspense boundaries for query-driven screens | TODO | CLN-10 |
 | CLN-10 | P1 | Add `/app/setup` loader prefetching | TODO | - |
@@ -139,7 +139,7 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
   - `src/features/setup/hooks/useLocalePreferenceModel.ts`
 
 ### CLN-07: Add timeout/error path to auth wait guard
-- Status: TODO
+- Status: DONE
 - Problem: Route can wait indefinitely during auth loading with no timeout fallback.
 - Scope:
   - Add bounded wait and deterministic redirect/error handling.
@@ -271,3 +271,5 @@ Improve maintainability, correctness, and resilience across setup/scheduling flo
 - 2026-02-22: Converted cleanup report into PRD-style backlog with explicit status lifecycle for agent loop execution.
 - 2026-02-22: Removed slot reset effect; derived effective slot selection during render in `AppointmentManager`.
 - 2026-02-22: Centralized auth state in `useAppAuth` and migrated router/setup hooks.
+- 2026-02-22: Started CLN-07; researching bounded auth wait handling.
+- 2026-02-22: Completed CLN-07; added auth wait timeout with redirect + test coverage.

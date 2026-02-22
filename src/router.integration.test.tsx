@@ -9,6 +9,11 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RouterContext } from "./router";
 import { routeTree } from "./routeTree.gen";
+import { AUTH_WAIT_TIMEOUT_MS } from "./routes/_authed";
+
+vi.mock("@posthog/react", () => ({
+  PostHogProvider: ({ children }: { children: ReactNode }) => children,
+}));
 
 const { mockProviderRender, mockSignIn, mockAuthState } = vi.hoisted(() => ({
   mockProviderRender: vi.fn(),
@@ -140,6 +145,25 @@ describe("router migration", () => {
 
     expect(await screen.findByText("Loading workspace...")).toBeInTheDocument();
     expect(screen.queryByText("Setup screen")).not.toBeInTheDocument();
+  });
+
+  it("redirects to /callback if auth loading exceeds the timeout", async () => {
+    const router = renderAtPath("/app/setup", {
+      isAuthenticated: false,
+      isLoading: true,
+    });
+
+    expect(
+      await screen.findByText("Loading workspace..."),
+    ).toBeInTheDocument();
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, AUTH_WAIT_TIMEOUT_MS + 20),
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/callback");
+    });
   });
 
   it("auto-redirects unauthenticated users from /callback to WorkOS sign in", async () => {
