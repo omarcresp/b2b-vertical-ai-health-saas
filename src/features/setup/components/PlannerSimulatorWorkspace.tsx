@@ -3,11 +3,9 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { AppointmentManager } from "@/features/setup/components/AppointmentManager";
-import {
-  CityField,
-  NumberField,
-  TextField,
-} from "@/features/setup/components/fields";
+import { CityField } from "@/features/setup/components/fields/CityField";
+import { NumberField } from "@/features/setup/components/fields/NumberField";
+import { TextField } from "@/features/setup/components/fields/TextField";
 import { MetricTile } from "@/features/setup/components/MetricTile";
 import { SnapshotPanel } from "@/features/setup/components/SnapshotPanel";
 import { StatusAndSubmit } from "@/features/setup/components/StatusAndSubmit";

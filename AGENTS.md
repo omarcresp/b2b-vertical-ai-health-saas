@@ -130,6 +130,7 @@ VITE_CONVEX_URL=             # From `npx convex dev` output
 
 ## Code Standards
 
+- **No barrel files.** Never create `index.ts` files that only re-export from sibling modules. Import directly from the source file (`./fields/TextField`, not `./fields`). Barrel files obscure where logic actually lives, break tree-shaking, and make coverage meaningless for the re-exporting file.
 - Strict TypeScript. All Convex function args require `v.` validators — no unvalidated input accepted.
 - Auth/authz must be enforced server-side inside Convex functions, not just on the client.
 - Use indexes over unbounded table scans in Convex queries.

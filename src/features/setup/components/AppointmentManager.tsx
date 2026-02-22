@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "#convex/_generated/api";
 import type { Id } from "#convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { TextField } from "@/features/setup/components/fields";
+import { TextField } from "@/features/setup/components/fields/TextField";
 import {
   CARD_CLASS,
   FIELD_LABEL_CLASS,

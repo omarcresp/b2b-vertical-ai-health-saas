@@ -42,11 +42,29 @@ export default defineConfig({
       reportsDirectory: "./coverage",
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
+        // Test infrastructure
         "src/**/*.test.{ts,tsx}",
         "src/**/*.spec.{ts,tsx}",
         "src/test/**",
         "src/main.tsx",
         "src/vite-env.d.ts",
+        // Auto-generated (TanStack Router)
+        "src/routeTree.gen.ts",
+        // Type-only files — no runtime code to execute
+        "src/**/*.d.ts",
+        "src/features/setup/types.ts",
+        // shadcn/ui primitives — CLAUDE.md: don't test untouched primitive behavior
+        "src/components/ui/**",
+        // Infrastructure boilerplate — require real auth/router runtimes
+        "src/ConvexProviderWithAuthKit.tsx",
+        "src/router.tsx",
+        "src/ErrorBoundary.tsx",
+        // i18n initialisation config — not business logic
+        "src/i18n/index.ts",
+        // Thin route wrapper files — tested implicitly via integration tests
+        "src/routes/_authed/app.appointments.tsx",
+        "src/routes/_authed/app.setup.tsx",
+        "src/routes/_authed/app.snapshot.tsx",
       ],
     },
   },
