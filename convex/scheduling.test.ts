@@ -634,6 +634,42 @@ describe("scheduling handlers", () => {
     );
   });
 
+  it("excludes conflicts that start before policy duration lookback", async () => {
+    const mock = createMockContext({
+      appointment: null,
+      extraAppointments: [
+        {
+          id: "appointment_2" as Id<"appointments">,
+          startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 420),
+          endAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 600),
+          status: "scheduled",
+        },
+      ],
+    });
+
+    const slots = await listAvailableSlotsForOwnerHandler(
+      mock.ctx as unknown as Parameters<
+        typeof listAvailableSlotsForOwnerHandler
+      >[0],
+      {
+        clinicSlug: "clinica-centro",
+        providerName: "Dr. Rivera",
+        dateLocal: DATE_LOCAL,
+        nowUtcMs: toBogotaUtcMs("2026-02-22", 540),
+      },
+    );
+
+    expect(slots.map((slot) => slot.startAtUtcMs)).not.toContain(
+      toBogotaUtcMs(DATE_LOCAL, 540),
+    );
+    expect(slots.map((slot) => slot.startAtUtcMs)).not.toContain(
+      toBogotaUtcMs(DATE_LOCAL, 585),
+    );
+    expect(slots.map((slot) => slot.startAtUtcMs)).toContain(
+      toBogotaUtcMs(DATE_LOCAL, 600),
+    );
+  });
+
   it("ignores canceled appointments when listing availability", async () => {
     const mock = createMockContext({
       appointment: null,
@@ -985,6 +1021,20 @@ describe("scheduling handlers", () => {
         appointmentId: APPOINTMENT_ID,
       }),
       SCHEDULING_ERROR_CODES.INVALID_TRANSITION,
+    );
+  });
+
+  it("rejects getAppointmentById when appointment does not exist", async () => {
+    const mock = createMockContext({ appointment: null });
+
+    await expectSchedulingCode(
+      getAppointmentByIdForOwnerHandler(
+        mock.ctx as unknown as Parameters<
+          typeof getAppointmentByIdForOwnerHandler
+        >[0],
+        { appointmentId: APPOINTMENT_ID },
+      ),
+      SCHEDULING_ERROR_CODES.NOT_FOUND,
     );
   });
 

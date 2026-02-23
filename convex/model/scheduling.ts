@@ -35,6 +35,8 @@ type SchedulingInputs = {
   weeklyWindows: Array<Doc<"providerWeeklySchedules">>;
 };
 
+const MAX_APPOINTMENT_DURATION_MIN = 24 * 60;
+
 function assertInteger(value: number, field: string) {
   if (!Number.isInteger(value)) {
     schedulingError(SCHEDULING_ERROR_CODES.INVALID_PAYLOAD, { field });
@@ -124,10 +126,9 @@ export async function loadScheduledConflicts(
   );
 }
 
-function sanitizeAvailabilityLimit(limit: number | undefined) {
-  const resolved = limit ?? 10;
-  assertPositiveInteger(resolved, "limit");
-  return Math.min(resolved, 50);
+function sanitizeAvailabilityLimit(limit = 10) {
+  assertPositiveInteger(limit, "limit");
+  return Math.min(limit, 50);
 }
 
 function validateAppointmentRangeOrThrow(args: {
@@ -199,7 +200,10 @@ async function listAvailableStartsForDate(
   }
 
   const durationMs = args.policy.appointmentDurationMin * MS_PER_MINUTE;
-  const rangeStartUtcMs = Math.max(0, startsWithinPolicy[0] - durationMs + 1);
+  const lookbackMs =
+    Math.max(args.policy.appointmentDurationMin, MAX_APPOINTMENT_DURATION_MIN) *
+    MS_PER_MINUTE;
+  const rangeStartUtcMs = Math.max(0, startsWithinPolicy[0] - lookbackMs + 1);
   const rangeEndUtcMs =
     startsWithinPolicy[startsWithinPolicy.length - 1] + durationMs - 1;
 
