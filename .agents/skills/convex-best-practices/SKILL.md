@@ -55,6 +55,180 @@ Before implementing, do not assume; fetch the latest documentation:
 4. **TypeScript everywhere** - Leverage end-to-end type safety
 5. **Queries are reactive** - Think in terms of subscriptions, not requests
 
+---
+
+## Three-Layer Architecture (Established Pattern)
+
+All backend domains in this codebase follow a strict three-layer layout. Never collapse layers or put logic in the wrong one.
+
+```
+convex/
+  lib/
+    dateUtils.ts          # Pure TS — no ctx, no _generated imports (type-only ok)
+    slotEngine.ts         # Pure TS — domain logic with no DB access
+    setupValidation.ts    # Pure TS — validation logic, no Convex runtime
+    schedulingError.ts    # Domain error helper (thin ConvexError wrapper)
+  model/
+    clinics.ts            # Entity helpers for clinics (getBySlug, assertOwner…)
+    providers.ts          # Entity helpers for providers
+    scheduling.ts         # Scheduling domain handlers + composite resolvers
+    setup.ts              # Setup domain handlers
+  scheduling.ts           # Thin API wrappers: query()/mutation() + v. validators only
+  setup.ts                # Thin API wrappers only
+  schema.ts               # Single source of truth for all tables
+  http.ts                 # All httpAction endpoints (singleton)
+  crons.ts                # All recurring jobs (singleton)
+```
+
+### Layer Rules
+
+| Layer | Contains | Imports allowed |
+|---|---|---|
+| `lib/` | Pure functions, validation, formatters, domain error helpers | `convex/values`, `import type` from `_generated`, `shared/` |
+| `model/` | Handlers, composite resolvers, DB access helpers | Everything above + `_generated/server`, `lib/` files |
+| Root (`domain.ts`) | `query()`, `mutation()`, `internalQuery()` wrappers + `v.` validators | `model/` handlers, `_generated/server` |
+
+**Never put real logic in the root API file.** The handler should be one line:
+```ts
+handler: async (ctx, args) => myHandler(ctx, args),
+```
+
+**Never import model files from lib files.** Data flows one way: lib ← model ← API wrapper.
+
+**Tests import from `model/`, not from the root API file.**
+```ts
+// CORRECT
+import { createAppointmentForOwnerHandler } from "./model/scheduling";
+
+// WRONG — tests should not go through the Convex wrapper layer
+import { createAppointmentForOwnerHandler } from "./scheduling";
+```
+
+### Entity Files in `model/`
+
+Entity-specific DB helpers belong in their own file, not inside a domain model file:
+
+```ts
+// convex/model/clinics.ts — NOT inside model/scheduling.ts
+export async function getClinicBySlugOrThrow(
+  ctx: QueryCtx | MutationCtx,
+  slug: string,
+): Promise<Doc<"clinics">> {
+  const clinic = await ctx.db
+    .query("clinics")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .unique();
+  if (!clinic) schedulingError(SCHEDULING_ERROR_CODES.NOT_FOUND);
+  return clinic;
+}
+
+export function assertClinicOwner(clinic: Doc<"clinics">, subject: string): void {
+  if (clinic.createdBySubject !== subject) {
+    schedulingError(SCHEDULING_ERROR_CODES.FORBIDDEN);
+  }
+}
+```
+
+**Rule:** if two different domain handlers need to look up the same entity, the helper belongs in an entity file, not in either domain file.
+
+### Composite Resolvers — Auth + DB Together
+
+Mixing auth checks with DB access in one composite function is intentional and correct. It prevents callers from accidentally fetching data without the auth check:
+
+```ts
+// CORRECT — auth and DB access are inseparable here by design
+async function resolveClinicProviderForOwner(
+  ctx: QueryCtx | MutationCtx,
+  args: { clinicSlug: string; providerName: string },
+) {
+  const identity = await requireIdentity(ctx);
+  const clinic = await getClinicBySlugOrThrow(ctx, clinicSlug);
+  assertClinicOwner(clinic, identity.subject);  // must follow fetch, not precede
+  const provider = await getProviderByNameOrThrow(ctx, clinic._id, providerName);
+  return { clinic, provider };
+}
+
+// WRONG — separating these creates a footgun where DB access happens without auth
+async function getClinicForOwner(ctx, slug) { ... }       // no auth
+async function checkOwnership(identity, clinic) { ... }   // too late to be safe
+```
+
+### Pure Utility Files in `lib/`
+
+If a file has zero Convex runtime imports (only `import type` from `_generated/dataModel`), it belongs in `lib/`, not in the `convex/` root or `model/`:
+
+```ts
+// convex/lib/dateUtils.ts — pure functions, no ctx
+import type { Doc } from "../_generated/dataModel"; // type-only: OK
+
+export function parseDateLocal(dateLocal: string): ParsedLocalDate | null { ... }
+export function combineLocalDateMinuteToUtcMs(
+  dateLocal: string,
+  minuteOfDay: number,
+  timezone: Doc<"clinics">["timezone"], // type-only reference: OK
+): number | null { ... }
+```
+
+Convex scans all `convex/*.ts` files for functions to register. Files in `convex/lib/` and `convex/model/` are not scanned directly — they're only reachable via imports. This keeps `_generated/api.d.ts` clean.
+
+### Domain Error Helpers
+
+Each domain has a thin error helper in `lib/` rather than repeating `throw new ConvexError(...)` everywhere:
+
+```ts
+// convex/lib/schedulingError.ts
+import { ConvexError } from "convex/values";
+import type { SCHEDULING_ERROR_CODES } from "../../shared/schedulingErrorCodes";
+
+export function schedulingError(
+  code: (typeof SCHEDULING_ERROR_CODES)[keyof typeof SCHEDULING_ERROR_CODES],
+  details?: Record<string, string | number | boolean>,
+): never {
+  throw new ConvexError({ code, ...details });
+}
+```
+
+Domains with complex validation errors (like setup) use a `try/catch` + converter pattern instead:
+
+```ts
+// convex/model/setup.ts
+function asConvexError(error: unknown) {
+  if (error instanceof ConvexError) return error;
+  if (error instanceof SetupValidationError) return new ConvexError({ code: error.code });
+  return new ConvexError({ code: SETUP_ERROR_CODES.INVALID_PAYLOAD });
+}
+```
+
+### Two Validation Layers — Both Needed
+
+`v.` validators at the API boundary and business rule assertions in the model layer validate **different things**:
+
+| Layer | Validates | Example |
+|---|---|---|
+| `v.number()` in args | Is this a JavaScript number? | Passes `3.7`, `-1`, `NaN` |
+| `assertPositiveInteger()` in model | Is this a valid business value? | Rejects `3.7`, `-1`, `NaN` |
+
+Do NOT use Zod/Valibot. Convex's `v.` system handles type validation. The model layer handles business invariants with `ConvexError` so structured error codes flow through to frontend i18n mapping.
+
+### `sanitizeAvailabilityLimit` pattern — default must be explicit
+
+When a function has an optional numeric argument with a default:
+
+```ts
+// CORRECT — default is explicit, undefined handling is visible
+function sanitizeAvailabilityLimit(limit: number | undefined) {
+  const resolved = limit ?? 10;
+  assertPositiveInteger(resolved, "limit");
+  return Math.min(resolved, 50);
+}
+
+// WRONG — default parameter never fires when called with `args.limit`
+//          which is typed `number | undefined`, not missing
+function sanitizeAvailabilityLimit(limit: number = 10) { ... }
+```
+
+---
+
 ### Function Organization
 
 Organize your Convex functions by domain:
@@ -124,15 +298,6 @@ export default defineSchema({
 // Query using index
 export const getTasksByUser = query({
   args: { userId: v.id("users") },
-  returns: v.array(
-    v.object({
-      _id: v.id("tasks"),
-      _creationTime: v.number(),
-      userId: v.id("users"),
-      status: v.string(),
-      createdAt: v.number(),
-    }),
-  ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("tasks")
@@ -145,31 +310,16 @@ export const getTasksByUser = query({
 
 ### Error Handling
 
-Use ConvexError for user-facing errors:
+Use ConvexError for user-facing errors. Always use structured error codes (objects), never plain strings — plain strings cannot be mapped to i18n keys:
 
 ```typescript
 import { ConvexError } from "convex/values";
 
-export const updateTask = mutation({
-  args: {
-    taskId: v.id("tasks"),
-    title: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get("tasks", args.taskId);
+// CORRECT — structured code that frontend can map to i18n
+throw new ConvexError({ code: "NOT_FOUND" });
 
-    if (!task) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "Task not found",
-      });
-    }
-
-    await ctx.db.patch("tasks", args.taskId, { title: args.title });
-    return null;
-  },
-});
+// WRONG — plain string cannot be programmatically mapped
+throw new ConvexError("Task not found");
 ```
 
 ### Avoiding Write Conflicts (Optimistic Concurrency Control)
@@ -193,17 +343,6 @@ export const completeTask = mutation({
       status: "completed",
       completedAt: Date.now(),
     });
-    return null;
-  },
-});
-
-// GOOD: Patch directly without reading first when possible
-export const updateNote = mutation({
-  args: { id: v.id("notes"), content: v.string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    // Patch directly - ctx.db.patch throws if document doesn't exist
-    await ctx.db.patch("notes", args.id, { content: args.content });
     return null;
   },
 });
@@ -232,35 +371,22 @@ type UserId = Id<"users">;
 
 // Use Doc type for full documents
 type User = Doc<"users">;
-
-// Define Record types properly
-const userScores: Record<Id<"users">, number> = {};
 ```
 
 ### Internal vs Public Functions
 
 ```typescript
-// Public function - exposed to clients
+// Public function - exposed to clients, must have full v. validation and auth
 export const getUser = query({
   args: { userId: v.id("users") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      /* ... */
-    }),
-  ),
-  handler: async (ctx, args) => {
-    // ...
-  },
+  handler: async (ctx, args) => { ... },
 });
 
 // Internal function - only callable from other Convex functions
+// Can relax validation since clients cannot reach it
 export const _updateUserStats = internalMutation({
   args: { userId: v.id("users") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    // ...
-  },
+  handler: async (ctx, args) => { ... },
 });
 ```
 
@@ -269,75 +395,36 @@ export const _updateUserStats = internalMutation({
 ### Complete CRUD Pattern
 
 ```typescript
-// convex/tasks.ts
+// convex/tasks.ts — thin API layer only
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { ConvexError } from "convex/values";
-
-const taskValidator = v.object({
-  _id: v.id("tasks"),
-  _creationTime: v.number(),
-  title: v.string(),
-  completed: v.boolean(),
-  userId: v.id("users"),
-});
+import {
+  listTasksHandler,
+  createTaskHandler,
+  updateTaskHandler,
+  removeTaskHandler,
+} from "./model/tasks";
 
 export const list = query({
   args: { userId: v.id("users") },
-  returns: v.array(taskValidator),
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("tasks")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .collect();
-  },
+  handler: async (ctx, args) => listTasksHandler(ctx, args),
 });
 
 export const create = mutation({
-  args: {
-    title: v.string(),
-    userId: v.id("users"),
-  },
-  returns: v.id("tasks"),
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("tasks", {
-      title: args.title,
-      completed: false,
-      userId: args.userId,
-    });
-  },
+  args: { title: v.string(), userId: v.id("users") },
+  handler: async (ctx, args) => createTaskHandler(ctx, args),
 });
 
-export const update = mutation({
-  args: {
-    taskId: v.id("tasks"),
-    title: v.optional(v.string()),
-    completed: v.optional(v.boolean()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const { taskId, ...updates } = args;
-
-    // Remove undefined values
-    const cleanUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([_, v]) => v !== undefined),
-    );
-
-    if (Object.keys(cleanUpdates).length > 0) {
-      await ctx.db.patch("tasks", taskId, cleanUpdates);
-    }
-    return null;
-  },
-});
-
-export const remove = mutation({
-  args: { taskId: v.id("tasks") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.delete("tasks", args.taskId);
-    return null;
-  },
-});
+// convex/model/tasks.ts — real logic
+export async function listTasksHandler(
+  ctx: QueryCtx,
+  args: { userId: Id<"users"> },
+) {
+  return await ctx.db
+    .query("tasks")
+    .withIndex("by_user", (q) => q.eq("userId", args.userId))
+    .collect();
+}
 ```
 
 ## Best Practices
@@ -347,18 +434,22 @@ export const remove = mutation({
 - Always define return validators for functions
 - Use indexes for all queries that filter data
 - Make mutations idempotent to handle retries gracefully
-- Use ConvexError for user-facing error messages
-- Organize functions by domain (users.ts, tasks.ts, etc.)
+- Use ConvexError with structured codes (objects) for user-facing errors — never plain strings
+- Organize functions by domain, follow the three-layer architecture
 - Use internal functions for sensitive operations
 - Leverage TypeScript's Id and Doc types
+- `http.ts` and `crons.ts` are always singletons — all HTTP actions go in one, all crons in one
 
 ## Common Pitfalls
 
 1. **Using filter instead of withIndex** - Always define indexes and use withIndex
 2. **Missing return validators** - Always specify the returns field
 3. **Non-idempotent mutations** - Check current state before updating
-4. **Reading before patching unnecessarily** - Patch directly when possible
-5. **Not handling null returns** - Document IDs might not exist
+4. **Logic in the root API file** - Root files are wrappers only; logic goes in `model/`
+5. **Entity helpers inside domain model files** - If two domains need the same entity lookup, it belongs in `model/clinics.ts` or `model/providers.ts`, not duplicated
+6. **Validation helpers in lib/ calling Convex runtime** - `lib/` files must be pure TS; only `import type` from `_generated` is allowed
+7. **Plain string ConvexError** - Always use `{ code: "..." }` object so frontend can map to i18n
+8. **Default parameter instead of `?? default`** - Optional number args typed as `number = 10` hide undefined; use `number | undefined` + `?? 10` inside
 
 ## References
 

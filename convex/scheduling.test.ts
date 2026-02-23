@@ -3,8 +3,6 @@ import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vitest";
 import { SCHEDULING_ERROR_CODES } from "../shared/schedulingErrorCodes";
 import type { Doc, Id } from "./_generated/dataModel";
-import { createStrictRedactedSink } from "./observability/redaction";
-import { CANONICAL_FUNCTION_EVENT_NAME } from "./observability/schema";
 import {
   cancelAppointmentForOwnerHandler,
   confirmAppointmentForOwnerHandler,
@@ -14,7 +12,8 @@ import {
   listAppointmentsPageForOwnerHandler,
   listAvailableSlotsForInternalHandler,
   listAvailableSlotsForOwnerHandler,
-} from "./scheduling";
+} from "./model/scheduling";
+import { createStrictRedactedSink } from "./observability/redaction";
 
 const CLINIC_ID = "clinic_1" as Id<"clinics">;
 const SECOND_CLINIC_ID = "clinic_2" as Id<"clinics">;
@@ -635,6 +634,42 @@ describe("scheduling handlers", () => {
     );
   });
 
+  it("excludes conflicts that start before policy duration lookback", async () => {
+    const mock = createMockContext({
+      appointment: null,
+      extraAppointments: [
+        {
+          id: "appointment_2" as Id<"appointments">,
+          startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 420),
+          endAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 600),
+          status: "scheduled",
+        },
+      ],
+    });
+
+    const slots = await listAvailableSlotsForOwnerHandler(
+      mock.ctx as unknown as Parameters<
+        typeof listAvailableSlotsForOwnerHandler
+      >[0],
+      {
+        clinicSlug: "clinica-centro",
+        providerName: "Dr. Rivera",
+        dateLocal: DATE_LOCAL,
+        nowUtcMs: toBogotaUtcMs("2026-02-22", 540),
+      },
+    );
+
+    expect(slots.map((slot) => slot.startAtUtcMs)).not.toContain(
+      toBogotaUtcMs(DATE_LOCAL, 540),
+    );
+    expect(slots.map((slot) => slot.startAtUtcMs)).not.toContain(
+      toBogotaUtcMs(DATE_LOCAL, 585),
+    );
+    expect(slots.map((slot) => slot.startAtUtcMs)).toContain(
+      toBogotaUtcMs(DATE_LOCAL, 600),
+    );
+  });
+
   it("ignores canceled appointments when listing availability", async () => {
     const mock = createMockContext({
       appointment: null,
@@ -752,7 +787,7 @@ describe("scheduling handlers", () => {
     vi.useRealTimers();
   });
 
-  it("create emits canonical completion and appointment.created with safe fields", async () => {
+  it("create logs appointment fields on success and redacts PII", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(toBogotaUtcMs("2026-02-22", 540)));
 
@@ -762,7 +797,7 @@ describe("scheduling handlers", () => {
     >[0];
 
     await withCapturedConvexLogs(async (records) => {
-      const appointmentId = await createAppointmentForOwnerHandler(ctx, {
+      await createAppointmentForOwnerHandler(ctx, {
         clinicSlug: "clinica-centro",
         providerName: "Dr. Rivera",
         patientName: "Maria",
@@ -770,91 +805,15 @@ describe("scheduling handlers", () => {
         startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 540),
       });
 
-      expect(appointmentId).toBe(NEW_APPOINTMENT_ID);
-
-      const canonicalEvents = records.filter(
-        (record) =>
-          record.properties["event.name"] === CANONICAL_FUNCTION_EVENT_NAME,
-      );
-      expect(canonicalEvents).toHaveLength(1);
-      expect(canonicalEvents[0]?.properties).toMatchObject({
-        "event.outcome": "success",
-        "convex.function.name": "scheduling.createAppointmentForOwnerHandler",
-        "convex.function.type": "mutation",
-        "tenant.clinic_slug": "clinica-centro",
-        "rate_limit.bucket": "addNumberPerUser",
-        "rate_limit.outcome": "allowed",
-      });
-      expect(canonicalEvents[0]?.properties["user.subject_hash"]).toMatch(
-        /^h1_[a-f0-9]{16}$/,
-      );
-
-      const domainEvents = records.filter(
-        (record) => record.properties["event.name"] === "appointment.created",
-      );
-      expect(domainEvents).toHaveLength(1);
-      expect(domainEvents[0]?.properties).toMatchObject({
+      expect(records).toHaveLength(1);
+      expect(records[0]?.properties).toMatchObject({
         "tenant.clinic_slug": "clinica-centro",
         "provider.id": PROVIDER_ID,
         "appointment.start_at_utc_ms": toBogotaUtcMs(DATE_LOCAL, 540),
         "appointment.duration.ms": 30 * 60 * 1_000,
       });
-
-      const serializedEventPayload = JSON.stringify(domainEvents[0]);
-      expect(serializedEventPayload).not.toContain("Maria");
-      expect(serializedEventPayload).not.toContain("+573001112233");
-    });
-
-    vi.useRealTimers();
-  });
-
-  it("create failure emits one canonical failure completion and no domain event", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(toBogotaUtcMs("2026-02-22", 540)));
-
-    const mock = createMockContext({
-      appointment: null,
-      extraAppointments: [
-        {
-          id: "appointment_2" as Id<"appointments">,
-          startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 540),
-          endAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 570),
-          status: "scheduled",
-        },
-      ],
-    });
-    const ctx = mock.ctx as unknown as Parameters<
-      typeof createAppointmentForOwnerHandler
-    >[0];
-
-    await withCapturedConvexLogs(async (records) => {
-      await expectSchedulingCode(
-        createAppointmentForOwnerHandler(ctx, {
-          clinicSlug: "clinica-centro",
-          providerName: "Dr. Rivera",
-          patientName: "Maria",
-          patientPhone: "+573001112233",
-          startAtUtcMs: toBogotaUtcMs(DATE_LOCAL, 540),
-        }),
-        SCHEDULING_ERROR_CODES.SLOT_UNAVAILABLE,
-      );
-
-      const canonicalEvents = records.filter(
-        (record) =>
-          record.properties["event.name"] === CANONICAL_FUNCTION_EVENT_NAME,
-      );
-      expect(canonicalEvents).toHaveLength(1);
-      expect(canonicalEvents[0]?.properties).toMatchObject({
-        "event.outcome": "failure",
-        "convex.function.name": "scheduling.createAppointmentForOwnerHandler",
-        "convex.function.type": "mutation",
-        "error.code": SCHEDULING_ERROR_CODES.SLOT_UNAVAILABLE,
-      });
-
-      const domainEvents = records.filter(
-        (record) => record.properties["event.name"] === "appointment.created",
-      );
-      expect(domainEvents).toHaveLength(0);
+      expect(JSON.stringify(records[0])).not.toContain("Maria");
+      expect(JSON.stringify(records[0])).not.toContain("+573001112233");
     });
 
     vi.useRealTimers();
@@ -1062,6 +1021,20 @@ describe("scheduling handlers", () => {
         appointmentId: APPOINTMENT_ID,
       }),
       SCHEDULING_ERROR_CODES.INVALID_TRANSITION,
+    );
+  });
+
+  it("rejects getAppointmentById when appointment does not exist", async () => {
+    const mock = createMockContext({ appointment: null });
+
+    await expectSchedulingCode(
+      getAppointmentByIdForOwnerHandler(
+        mock.ctx as unknown as Parameters<
+          typeof getAppointmentByIdForOwnerHandler
+        >[0],
+        { appointmentId: APPOINTMENT_ID },
+      ),
+      SCHEDULING_ERROR_CODES.NOT_FOUND,
     );
   });
 

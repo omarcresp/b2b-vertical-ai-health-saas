@@ -8,6 +8,12 @@
  * @module
  */
 
+import type * as lib_dateUtils from "../lib/dateUtils.js";
+import type * as lib_schedulingError from "../lib/schedulingError.js";
+import type * as lib_slotEngine from "../lib/slotEngine.js";
+import type * as model_clinics from "../model/clinics.js";
+import type * as model_providers from "../model/providers.js";
+import type * as model_scheduling from "../model/scheduling.js";
 import type * as observability_logging from "../observability/logging.js";
 import type * as observability_redaction from "../observability/redaction.js";
 import type * as rateLimiter from "../rateLimiter.js";
@@ -23,6 +29,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "lib/dateUtils": typeof lib_dateUtils;
+  "lib/schedulingError": typeof lib_schedulingError;
+  "lib/slotEngine": typeof lib_slotEngine;
+  "model/clinics": typeof model_clinics;
+  "model/providers": typeof model_providers;
+  "model/scheduling": typeof model_scheduling;
   "observability/logging": typeof observability_logging;
   "observability/redaction": typeof observability_redaction;
   rateLimiter: typeof rateLimiter;

@@ -1,7 +1,7 @@
 import {
   SETUP_ERROR_CODES,
   type SetupErrorCode,
-} from "../shared/setupErrorCodes";
+} from "../../shared/setupErrorCodes";
 
 export const TIMEZONE_BY_CITY = {
   cdmx: "America/Mexico_City",
