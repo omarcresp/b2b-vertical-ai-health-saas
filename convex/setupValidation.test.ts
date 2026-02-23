@@ -4,7 +4,7 @@ import {
   timezoneForCity,
   validateAndSortWeeklyWindows,
   validateSetupNumbers,
-} from "./setupValidation";
+} from "./lib/setupValidation";
 
 describe("setupValidation", () => {
   it("normalizes clinic slug and strips accents", () => {

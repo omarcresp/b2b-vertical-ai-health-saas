@@ -6,7 +6,7 @@ import {
   getMyLatestSetupKeyHandler,
   getSetupSnapshotHandler,
   upsertClinicProviderSetupHandler,
-} from "./setup";
+} from "./model/setup";
 
 const CLINIC_ID = "clinic_1" as Id<"clinics">;
 const PROVIDER_ID = "provider_1" as Id<"providers">;
